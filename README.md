@@ -1,8 +1,12 @@
 # Beat Machine
 
-A native sampler pad for [Möbius](https://github.com/mobius-os/mobius). Beat
-Machine gives you eight synthesized drum pads, eight custom sample slots, pad
-volume controls, and simple echo/reverb effects in an offline-capable mini-app.
+A native 32-step sequencer for [Möbius](https://github.com/mobius-os/mobius).
+Beat Machine keeps the original prod app's simple grid-first workflow: choose
+sounds, draw a 32-beat pattern, set BPM, and add custom recordings when needed.
+
+This catalog version is intentionally modest. It removes the old unused
+Pads/Sequence mode switch while preserving the sequencer, drum-kit voices,
+custom sample slots, per-pad volume, and echo/reverb controls.
 
 ## Install
 
@@ -22,8 +26,8 @@ https://raw.githubusercontent.com/mobius-os/app-beat-machine/main/mobius.json
 ## What it stores
 
 Beat Machine stores its state in `state.json` through `window.mobius.storage`:
-pad volumes, global effects, and recorded custom samples. Writes queue while
-offline, and the app code is cached for offline launch.
+the 32-step grid, BPM, pad volumes, global effects, and recorded custom samples.
+Writes queue while offline, and the app code is cached for offline launch.
 
 ## License
 
