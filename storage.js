@@ -1,4 +1,4 @@
-import { PADS, PAD_COLORS } from './audio.js'
+import { CUSTOM_START, PADS, PAD_COLORS, TOTAL_BEATS } from './audio.js'
 import { useEffect, useState } from 'react'
 
 export const SAVE_PATH = 'state.json'
@@ -13,19 +13,15 @@ function headers(token) {
 }
 
 export async function loadBeatState(appId, token) {
-  try {
-    const bridge = storageBridge()
-    if (bridge && typeof bridge.get === 'function') {
-      return sanitizeState(await bridge.get(SAVE_PATH))
-    }
-    if (!appId || !token) return sanitizeState(null)
-    const res = await fetch(`/api/storage/apps/${appId}/${SAVE_PATH}`, { headers: headers(token) })
-    if (res.status === 404) return sanitizeState(null)
-    if (!res.ok) throw new Error(`GET ${SAVE_PATH} failed (${res.status})`)
-    return sanitizeState(await res.json())
-  } catch {
-    return sanitizeState(null)
+  const bridge = storageBridge()
+  if (bridge && typeof bridge.get === 'function') {
+    return sanitizeState(await bridge.get(SAVE_PATH))
   }
+  if (!appId || !token) return sanitizeState(null)
+  const res = await fetch(`/api/storage/apps/${appId}/${SAVE_PATH}`, { headers: headers(token) })
+  if (res.status === 404) return sanitizeState(null)
+  if (!res.ok) throw new Error(`GET ${SAVE_PATH} failed (${res.status})`)
+  return sanitizeState(await res.json())
 }
 
 export async function saveBeatState(appId, token, data) {
@@ -45,13 +41,45 @@ export async function saveBeatState(appId, token, data) {
 }
 
 export function sanitizeState(raw) {
-  const state = raw && typeof raw === 'object' ? raw : {}
+  const state = unwrapStorageEnvelope(raw)
   return {
+    grid: sanitizeGrid(state.grid),
+    bpm: sanitizeBpm(state.bpm),
     volumes: sanitizeVolumes(state.volumes),
     echo: clamp01(state.echo),
     reverb: clamp01(state.reverb),
     customPads: sanitizeCustomPads(state.customPads),
   }
+}
+
+export function createEmptyGrid() {
+  return Array.from({ length: PADS }, () => new Array(TOTAL_BEATS).fill(false))
+}
+
+function unwrapStorageEnvelope(raw) {
+  if (raw && typeof raw === 'object' && typeof raw.content === 'string') {
+    try {
+      const parsed = JSON.parse(raw.content)
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  }
+  return raw && typeof raw === 'object' ? raw : {}
+}
+
+function sanitizeGrid(value) {
+  const rows = Array.isArray(value) ? value : []
+  return Array.from({ length: PADS }, (_, padIdx) => {
+    const row = Array.isArray(rows[padIdx]) ? rows[padIdx] : []
+    return Array.from({ length: TOTAL_BEATS }, (_, beatIdx) => row[beatIdx] === true)
+  })
+}
+
+function sanitizeBpm(value) {
+  const bpm = Number(value)
+  if (!Number.isFinite(bpm)) return 120
+  return Math.max(60, Math.min(200, Math.round(bpm)))
 }
 
 function sanitizeVolumes(value) {
@@ -67,12 +95,12 @@ function sanitizeCustomPads(value) {
   return value
     .map((item) => {
       const idx = Number(item?.idx)
-      if (!Number.isInteger(idx) || idx < 8 || idx >= PADS) return null
+      if (!Number.isInteger(idx) || idx < CUSTOM_START || idx >= PADS) return null
       const audio = item.audio && typeof item.audio === 'object' ? item.audio : null
       if (!audio || !Array.isArray(audio.channels) || audio.channels.length === 0) return null
       return {
         idx,
-        name: String(item.name || `Sample ${idx - 7}`).slice(0, 18),
+        name: String(item.name || `Rec ${idx - CUSTOM_START + 1}`).slice(0, 18),
         color: typeof item.color === 'string' ? item.color : PAD_COLORS[idx],
         audio,
       }
@@ -101,7 +129,11 @@ export function useOnline() {
     window.addEventListener('online', up)
     window.addEventListener('offline', down)
     let unsub = null
-    if (window.mobius && typeof window.mobius.onChange === 'function') {
+    if (window.mobius && typeof window.mobius.onOnlineChange === 'function') {
+      unsub = window.mobius.onOnlineChange((next) => {
+        setOnline(next !== false)
+      })
+    } else if (window.mobius && typeof window.mobius.onChange === 'function') {
       unsub = window.mobius.onChange((state) => {
         if (typeof state?.online === 'boolean') setOnline(state.online)
       })
