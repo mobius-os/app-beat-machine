@@ -5,8 +5,19 @@ export const CSS = `
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+.bm-root button {
+  touch-action: manipulation;
+}
 .bm-root button:disabled {
   cursor: default !important;
+}
+@media (hover: hover) {
+  .bm-root button:not(:disabled):hover {
+    filter: brightness(1.08);
+  }
+}
+.bm-root button:not(:disabled):active {
+  filter: brightness(0.96);
 }
 .bm-root .bm-scroll-skin {
   scrollbar-width: none;
@@ -136,7 +147,7 @@ export const S = {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
-    flex: 1,
+    flex: '0 1 auto',
     minHeight: 0,
     overflow: 'hidden',
   },
@@ -256,8 +267,9 @@ export const S = {
   },
   seqScrollWrapper: {
     display: 'flex',
-    flex: 1,
+    flex: '0 1 auto',
     minHeight: 0,
+    maxHeight: 'min(48vh, 390px)',
     overflow: 'hidden',
   },
   seqLabelsCol: {
@@ -317,7 +329,8 @@ export const S = {
     display: 'flex',
     gap: 12,
     alignItems: 'stretch',
-    flexShrink: 0,
+    flex: '1 1 0',
+    minHeight: 0,
   },
   padArea: {
     width: 'min(56%, 248px)',
@@ -415,15 +428,25 @@ export const S = {
   selRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     flexShrink: 0,
     flexWrap: 'wrap',
     minWidth: 0,
+  },
+  selectedIconSlot: {
+    width: 18,
+    height: 18,
+    flex: '0 0 auto',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selName: {
     fontWeight: 650,
     fontSize: 11,
     color: 'var(--text)',
+    flex: '1 1 48px',
+    minWidth: 0,
     maxWidth: 98,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -457,15 +480,24 @@ export const S = {
     padding: '8px 10px',
   },
   tinyBtn: {
-    minHeight: 22,
-    padding: '1px 6px',
-    borderRadius: 3,
+    width: 24,
+    height: 24,
+    padding: 0,
+    borderRadius: 5,
     border: '1px solid var(--border)',
     background: 'transparent',
     color: 'var(--muted)',
-    fontSize: 8,
     cursor: 'pointer',
     fontFamily: 'var(--font)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: '0 0 auto',
+  },
+  tinyBtnIcon: {
+    width: 14,
+    height: 14,
+    display: 'block',
   },
   fxArea: {
     display: 'flex',

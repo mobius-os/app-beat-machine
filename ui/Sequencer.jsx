@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CUSTOM_START, TOTAL_BEATS } from '../audio.js'
 import { S } from '../styles.js'
 import { SoundIcon } from './PadBanks.jsx'
@@ -16,22 +16,47 @@ export function Sequencer({
   onToggleCell,
 }) {
   const [confirmClear, setConfirmClear] = useState(false)
+  const clearButtonRef = useRef(null)
+  const cancelButtonRef = useRef(null)
+  const dangerButtonRef = useRef(null)
   const visibleRows = pads
     .map((pad, padIdx) => ({ pad, padIdx }))
     .filter(({ pad }) => pad.buffer || pad.isPreset)
 
   useEffect(() => {
     if (!confirmClear) return undefined
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') setConfirmClear(false)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    cancelButtonRef.current?.focus()
+    return undefined
   }, [confirmClear])
+
+  const closeClearDialog = () => {
+    setConfirmClear(false)
+    window.requestAnimationFrame(() => clearButtonRef.current?.focus())
+  }
+
+  const handleDialogKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeClearDialog()
+      return
+    }
+    if (event.key !== 'Tab') return
+    const focusable = [cancelButtonRef.current, dangerButtonRef.current].filter(Boolean)
+    if (!focusable.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   const confirmAndClear = () => {
     onClear()
-    setConfirmClear(false)
+    closeClearDialog()
   }
 
   return (
@@ -59,6 +84,7 @@ export function Sequencer({
           <span style={S.bpmValue}>{bpm}</span>
         </div>
         <button
+          ref={clearButtonRef}
           type="button"
           style={S.clearBtn}
           onClick={() => setConfirmClear(true)}
@@ -73,7 +99,7 @@ export function Sequencer({
         <div
           style={S.dialogBackdrop}
           role="presentation"
-          onClick={() => setConfirmClear(false)}
+          onClick={closeClearDialog}
         >
           <div
             style={S.clearDialog}
@@ -81,6 +107,7 @@ export function Sequencer({
             aria-modal="true"
             aria-labelledby="bm-clear-title"
             aria-describedby="bm-clear-copy"
+            onKeyDown={handleDialogKeyDown}
             onClick={(event) => event.stopPropagation()}
           >
             <div id="bm-clear-title" style={S.clearDialogTitle}>Clear pattern?</div>
@@ -89,14 +116,15 @@ export function Sequencer({
             </div>
             <div style={S.clearDialogActions}>
               <button
+                ref={cancelButtonRef}
                 type="button"
                 style={S.dialogCancelBtn}
-                onClick={() => setConfirmClear(false)}
-                autoFocus
+                onClick={closeClearDialog}
               >
                 Cancel
               </button>
               <button
+                ref={dangerButtonRef}
                 type="button"
                 style={S.dialogDangerBtn}
                 onClick={confirmAndClear}

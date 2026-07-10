@@ -1,5 +1,6 @@
 import { CUSTOM_START } from '../audio.js'
 import { S } from '../styles.js'
+import { SoundIcon } from './PadBanks.jsx'
 
 function EffectIcon({ kind, color }) {
   const style = { ...S.fxIconSvg, color }
@@ -18,6 +19,25 @@ function EffectIcon({ kind, color }) {
         <circle cx="14" cy="14" r="4" fill="currentColor" opacity="0.28" />
         <circle cx="14" cy="14" r="8" fill="none" stroke="currentColor" strokeWidth="1.8" opacity="0.7" />
         <circle cx="14" cy="14" r="12" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
+      </svg>
+    )
+  }
+  return null
+}
+
+function ActionIcon({ kind }) {
+  if (kind === 'rename') {
+    return (
+      <svg style={S.tinyBtnIcon} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 19h4.2L18.7 9.5a2.2 2.2 0 0 0-3.1-3.1L6.1 15.9 5 19z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M14.4 7.6l2 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  if (kind === 'delete') {
+    return (
+      <svg style={S.tinyBtnIcon} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7 8h10M10 8V6h4v2M9 11v6M15 11v6M8 8l.7 11h6.6L16 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     )
   }
@@ -112,7 +132,14 @@ export function ControlPanel({
       ) : selected?.buffer ? (
         <div style={S.waveArea}>
           <div style={S.selRow}>
-            <span style={{ color: selected.color }} aria-hidden="true">♪</span>
+            <span style={S.selectedIconSlot} aria-hidden="true">
+              <SoundIcon
+                name={selected.name}
+                color={selected.color}
+                custom={selectedPad >= CUSTOM_START}
+                size={18}
+              />
+            </span>
             <span style={S.selName}>{selected.name}</span>
             {selected.isPreset && <span style={S.presetTag}>KIT</span>}
             {selectedPad >= CUSTOM_START && (
@@ -124,7 +151,7 @@ export function ControlPanel({
                   title="Rename sample"
                   aria-label="Rename sample"
                 >
-                  Ren
+                  <ActionIcon kind="rename" />
                 </button>
                 <button
                   type="button"
@@ -133,7 +160,7 @@ export function ControlPanel({
                   title="Delete sample"
                   aria-label="Delete sample"
                 >
-                  Del
+                  <ActionIcon kind="delete" />
                 </button>
               </>
             )}
