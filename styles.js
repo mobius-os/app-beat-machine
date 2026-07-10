@@ -269,7 +269,9 @@ export const S = {
     display: 'flex',
     flex: 1,
     minHeight: 0,
-    overflow: 'hidden',
+    overflowX: 'hidden',
+    overflowY: 'auto',
+    touchAction: 'pan-x pan-y',
   },
   seqLabelsCol: {
     display: 'flex',
@@ -280,7 +282,7 @@ export const S = {
   seqScrollArea: {
     flex: 1,
     overflowX: 'auto',
-    overflowY: 'auto',
+    overflowY: 'hidden',
     minWidth: 0,
     touchAction: 'pan-x pan-y',
   },

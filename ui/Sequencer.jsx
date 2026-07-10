@@ -19,6 +19,10 @@ export function Sequencer({
   const clearButtonRef = useRef(null)
   const cancelButtonRef = useRef(null)
   const dangerButtonRef = useRef(null)
+  const visibleRows = pads
+    .map((pad, padIdx) => ({ pad, padIdx }))
+    .filter(({ pad, padIdx }) => padIdx < CUSTOM_START || pad.buffer || pad.isPreset)
+  const firstCustomPadIdx = visibleRows.find(({ padIdx }) => padIdx >= CUSTOM_START)?.padIdx
 
   useEffect(() => {
     if (!confirmClear) return undefined
@@ -133,18 +137,19 @@ export function Sequencer({
         </div>
       )}
 
-      <div style={S.seqScrollWrapper}>
+      <div className="bm-scroll-skin" style={S.seqScrollWrapper}>
         <div style={S.seqLabelsCol} aria-hidden="true">
           <div style={{ height: 16, flexShrink: 0 }} />
-          {pads.map((pad, padIdx) => {
+          {visibleRows.map(({ pad, padIdx }) => {
             const hasSound = pad.buffer || pad.isPreset
+            const startsCustomRows = padIdx === firstCustomPadIdx
             return (
               <div
                 key={padIdx}
                 style={{
                   ...S.seqRowLabel,
-                  borderTop: padIdx === CUSTOM_START ? '1px solid var(--border)' : 'none',
-                  marginTop: padIdx === CUSTOM_START ? 3 : 0,
+                  borderTop: startsCustomRows ? '1px solid var(--border)' : 'none',
+                  marginTop: startsCustomRows ? 3 : 0,
                   opacity: hasSound ? 1 : 0.25,
                 }}
                 title={pad.name || `Pad ${padIdx + 1}`}
@@ -177,15 +182,16 @@ export function Sequencer({
                 </div>
               ))}
             </div>
-            {pads.map((pad, padIdx) => {
+            {visibleRows.map(({ pad, padIdx }) => {
               const hasSound = pad.buffer || pad.isPreset
+              const startsCustomRows = padIdx === firstCustomPadIdx
               return (
                 <div
                   key={padIdx}
                   style={{
                     ...S.seqCells,
-                    borderTop: padIdx === CUSTOM_START ? '1px solid var(--border)' : 'none',
-                    marginTop: padIdx === CUSTOM_START ? 3 : 0,
+                    borderTop: startsCustomRows ? '1px solid var(--border)' : 'none',
+                    marginTop: startsCustomRows ? 3 : 0,
                   }}
                   role="row"
                   aria-label={pad.name || `Pad ${padIdx + 1}`}
