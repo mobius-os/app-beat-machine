@@ -296,13 +296,21 @@ export const S = {
     display: 'grid',
     gridTemplateColumns: `repeat(${TOTAL_BEATS}, 1fr)`,
     gap: 1,
+    height: 12,
   },
   beatNum: {
-    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     fontSize: 8,
-    padding: '1px 0',
+    lineHeight: 1,
+    padding: 0,
     minWidth: 27,
     fontVariantNumeric: 'tabular-nums',
+  },
+  seqHeaderSpacer: {
+    height: 12,
+    flexShrink: 0,
   },
   seqRowLabel: {
     width: 24,

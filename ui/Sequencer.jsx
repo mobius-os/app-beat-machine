@@ -139,7 +139,7 @@ export function Sequencer({
 
       <div className="bm-scroll-skin" style={S.seqScrollWrapper}>
         <div style={S.seqLabelsCol} aria-hidden="true">
-          <div style={{ height: 16, flexShrink: 0 }} />
+          <div style={S.seqHeaderSpacer} />
           {visibleRows.map(({ pad, padIdx }) => {
             const hasSound = pad.buffer || pad.isPreset
             const startsCustomRows = padIdx === firstCustomPadIdx
