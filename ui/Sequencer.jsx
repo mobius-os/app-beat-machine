@@ -22,8 +22,11 @@ export function Sequencer({
 
   useEffect(() => {
     if (!confirmClear) return undefined
-    const timeout = window.setTimeout(() => setConfirmClear(false), 4500)
-    return () => window.clearTimeout(timeout)
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setConfirmClear(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [confirmClear])
 
   const confirmAndClear = () => {
@@ -55,38 +58,55 @@ export function Sequencer({
           />
           <span style={S.bpmValue}>{bpm}</span>
         </div>
-        <div style={S.clearGroup}>
-          {confirmClear ? (
-            <>
+        <button
+          type="button"
+          style={S.clearBtn}
+          onClick={() => setConfirmClear(true)}
+          title="Clear pattern"
+          aria-label="Clear pattern"
+        >
+          Clear
+        </button>
+      </div>
+
+      {confirmClear && (
+        <div
+          style={S.dialogBackdrop}
+          role="presentation"
+          onClick={() => setConfirmClear(false)}
+        >
+          <div
+            style={S.clearDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bm-clear-title"
+            aria-describedby="bm-clear-copy"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div id="bm-clear-title" style={S.clearDialogTitle}>Clear pattern?</div>
+            <div id="bm-clear-copy" style={S.clearDialogText}>
+              This removes every active step from the sequencer. Your sounds stay loaded.
+            </div>
+            <div style={S.clearDialogActions}>
               <button
                 type="button"
-                style={S.clearCancelBtn}
+                style={S.dialogCancelBtn}
                 onClick={() => setConfirmClear(false)}
+                autoFocus
               >
                 Cancel
               </button>
               <button
                 type="button"
-                style={S.clearConfirmBtn}
+                style={S.dialogDangerBtn}
                 onClick={confirmAndClear}
-                aria-label="Confirm clear pattern"
               >
                 Clear pattern
               </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              style={S.clearBtn}
-              onClick={() => setConfirmClear(true)}
-              title="Clear pattern"
-              aria-label="Clear pattern"
-            >
-              Clear
-            </button>
-          )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       <div style={S.seqScrollWrapper}>
         <div style={S.seqLabelsCol} aria-hidden="true">

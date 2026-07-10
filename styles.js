@@ -194,16 +194,45 @@ export const S = {
     cursor: 'pointer',
     fontFamily: 'var(--font)',
   },
-  clearGroup: {
-    minHeight: 32,
+  dialogBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 20,
     display: 'flex',
     alignItems: 'center',
-    gap: 5,
-    flexShrink: 0,
+    justifyContent: 'center',
+    padding: 18,
+    background: 'rgba(4,6,10,0.58)',
   },
-  clearCancelBtn: {
+  clearDialog: {
+    width: 'min(310px, 100%)',
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    background: 'var(--surface)',
+    color: 'var(--text)',
+    padding: 14,
+    boxShadow: '0 8px 18px rgba(0,0,0,0.34)',
+  },
+  clearDialogTitle: {
+    fontSize: 13,
+    fontWeight: 800,
+    lineHeight: 1.2,
+    marginBottom: 6,
+  },
+  clearDialogText: {
+    fontSize: 11,
+    lineHeight: 1.45,
+    color: 'var(--muted)',
+  },
+  clearDialogActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: 7,
+    marginTop: 14,
+  },
+  dialogCancelBtn: {
     minHeight: 32,
-    padding: '6px 9px',
+    padding: '6px 11px',
     borderRadius: 6,
     border: '1px solid var(--border)',
     background: 'transparent',
@@ -212,9 +241,9 @@ export const S = {
     cursor: 'pointer',
     fontFamily: 'var(--font)',
   },
-  clearConfirmBtn: {
+  dialogDangerBtn: {
     minHeight: 32,
-    padding: '6px 10px',
+    padding: '6px 11px',
     borderRadius: 6,
     border: '1px solid rgba(248,113,113,0.56)',
     background: 'rgba(248,113,113,0.13)',
