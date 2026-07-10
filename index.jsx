@@ -515,7 +515,7 @@ export default function BeatMachine({ appId, token }) {
   return (
     <div className="bm-root" style={S.root}>
       <style>{CSS}</style>
-      <Header appId={appId} activePads={activePads} online={online} />
+      <Header appId={appId} online={online} />
 
       <Sequencer
         pads={pads}

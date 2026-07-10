@@ -1,22 +1,63 @@
 import { CUSTOM_START } from '../audio.js'
 import { S } from '../styles.js'
 
-function SliderRow({ label, value, onChange, accentColor }) {
+function EffectIcon({ kind, color }) {
+  const style = { ...S.fxIconSvg, color }
+  if (kind === 'echo') {
+    return (
+      <svg style={style} viewBox="0 0 28 28" aria-hidden="true">
+        <path d="M6 16c2.6-5.5 7.4-5.5 10 0s7.4 5.5 10 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <path d="M5 21c3-3 6-3 9 0s6 3 9 0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" opacity="0.55" />
+        <path d="M5 11c3-3 6-3 9 0s6 3 9 0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" opacity="0.35" />
+      </svg>
+    )
+  }
+  if (kind === 'reverb') {
+    return (
+      <svg style={style} viewBox="0 0 28 28" aria-hidden="true">
+        <circle cx="14" cy="14" r="4" fill="currentColor" opacity="0.28" />
+        <circle cx="14" cy="14" r="8" fill="none" stroke="currentColor" strokeWidth="1.8" opacity="0.7" />
+        <circle cx="14" cy="14" r="12" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
+      </svg>
+    )
+  }
+  return null
+}
+
+function SliderRow({ label, value, onChange, accentColor, kind = null }) {
   const pct = Math.round((value ?? 0) * 100)
+  const isFx = kind === 'echo' || kind === 'reverb'
+  const sliderStyle = isFx ? S.fxSlider : S.slider
+  const valueStyle = isFx ? S.fxSliderVal : S.sliderVal
   return (
-    <div style={S.sliderRow}>
-      <span style={S.sliderLabel}>{label}</span>
+    <label style={isFx ? S.fxSliderRow : S.sliderRow}>
+      {isFx ? (
+        <span
+          style={{ ...S.fxIconBadge, borderColor: `${accentColor}44`, background: `${accentColor}12` }}
+          title={label}
+          aria-hidden="true"
+        >
+          <EffectIcon kind={kind} color={accentColor} />
+        </span>
+      ) : (
+        <span style={S.sliderLabel}>{label}</span>
+      )}
       <input
+        className="bm-slider"
         type="range"
         min={0}
         max={100}
         value={pct}
         aria-label={label}
         onChange={(event) => onChange(Number(event.target.value) / 100)}
-        style={{ ...S.slider, accentColor }}
+        style={{
+          ...sliderStyle,
+          '--bm-slider-color': accentColor,
+          '--bm-slider-pct': `${pct}%`,
+        }}
       />
-      <span style={S.sliderVal}>{pct}%</span>
-    </div>
+      {!isFx && <span style={valueStyle}>{pct}%</span>}
+    </label>
   )
 }
 
@@ -110,8 +151,8 @@ export function ControlPanel({
       )}
 
       <div style={S.fxArea}>
-        <SliderRow label="Echo" value={echo} accentColor="#60a5fa" onChange={onEchoChange} />
-        <SliderRow label="Reverb" value={reverb} accentColor="#c084fc" onChange={onReverbChange} />
+        <SliderRow label="Echo" value={echo} accentColor="#60a5fa" kind="echo" onChange={onEchoChange} />
+        <SliderRow label="Reverb" value={reverb} accentColor="#c084fc" kind="reverb" onChange={onReverbChange} />
       </div>
     </aside>
   )

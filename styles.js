@@ -17,6 +17,44 @@ export const CSS = `
   width: 0;
   height: 0;
 }
+.bm-root .bm-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  height: 22px;
+  cursor: pointer;
+}
+.bm-root .bm-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.13);
+  background: linear-gradient(90deg, var(--bm-slider-color) 0 var(--bm-slider-pct), rgba(255,255,255,0.22) var(--bm-slider-pct) 100%);
+}
+.bm-root .bm-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border-radius: 999px;
+  border: 3px solid var(--bm-slider-color);
+  background: var(--text);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.34);
+}
+.bm-root .bm-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.13);
+  background: linear-gradient(90deg, var(--bm-slider-color) 0 var(--bm-slider-pct), rgba(255,255,255,0.22) var(--bm-slider-pct) 100%);
+}
+.bm-root .bm-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 3px solid var(--bm-slider-color);
+  background: var(--text);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.34);
+}
 @media (prefers-reduced-motion: reduce) {
   .bm-root *, .bm-root *::before, .bm-root *::after {
     transition-duration: 0.01ms !important;
@@ -29,6 +67,7 @@ export const CSS = `
 export const S = {
   root: {
     height: '100%',
+    boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
     padding: '12px 16px',
@@ -69,7 +108,8 @@ export const S = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 20,
+    fontSize: 10,
+    fontWeight: 800,
     color: 'var(--accent)',
   },
   title: {
@@ -81,17 +121,6 @@ export const S = {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-  },
-  badge: {
-    fontSize: 10,
-    padding: '2px 7px',
-    borderRadius: 12,
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    color: 'var(--muted)',
-    marginLeft: 4,
-    fontVariantNumeric: 'tabular-nums',
-    flex: '0 0 auto',
   },
   offlinePill: {
     fontSize: 10,
@@ -165,6 +194,37 @@ export const S = {
     cursor: 'pointer',
     fontFamily: 'var(--font)',
   },
+  clearGroup: {
+    minHeight: 32,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    flexShrink: 0,
+  },
+  clearCancelBtn: {
+    minHeight: 32,
+    padding: '6px 9px',
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--muted)',
+    fontSize: 11,
+    cursor: 'pointer',
+    fontFamily: 'var(--font)',
+  },
+  clearConfirmBtn: {
+    minHeight: 32,
+    padding: '6px 10px',
+    borderRadius: 6,
+    border: '1px solid rgba(248,113,113,0.56)',
+    background: 'rgba(248,113,113,0.13)',
+    color: '#fca5a5',
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontFamily: 'var(--font)',
+    whiteSpace: 'nowrap',
+  },
   seqScrollWrapper: {
     display: 'flex',
     flex: 1,
@@ -203,17 +263,13 @@ export const S = {
     fontVariantNumeric: 'tabular-nums',
   },
   seqRowLabel: {
-    width: 62,
-    fontSize: 8,
-    fontWeight: 650,
+    width: 24,
     flexShrink: 0,
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    textAlign: 'right',
-    paddingRight: 8,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 5,
     height: 21,
-    lineHeight: '21px',
   },
   seqCells: {
     display: 'grid',
@@ -235,7 +291,7 @@ export const S = {
     flexShrink: 0,
   },
   padArea: {
-    width: '56%',
+    width: 'min(56%, 248px)',
     flexShrink: 0,
     display: 'flex',
     flexDirection: 'column',
@@ -251,7 +307,8 @@ export const S = {
   },
   padGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(4, minmax(42px, 58px))',
+    justifyContent: 'start',
     gap: 5,
   },
   pad: {
@@ -274,19 +331,36 @@ export const S = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 1,
+    gap: 2,
     pointerEvents: 'none',
     minWidth: 0,
     maxWidth: '100%',
   },
+  padIcon: {
+    width: 26,
+    height: 26,
+    flex: '0 0 auto',
+    display: 'block',
+  },
   padName: {
-    fontSize: 8.5,
-    fontWeight: 650,
-    opacity: 0.68,
-    maxWidth: '88%',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    fontSize: 7.6,
+    fontWeight: 700,
+    lineHeight: 1.05,
+    opacity: 0.72,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'visible',
+    textOverflow: 'clip',
+    whiteSpace: 'normal',
+    textAlign: 'center',
+    textWrap: 'balance',
+  },
+  recDot: {
+    width: 13,
+    height: 13,
+    borderRadius: 999,
+    background: '#f87171',
+    boxShadow: '0 0 0 4px rgba(248,113,113,0.14)',
   },
   rightPanel: {
     flex: 1,
@@ -367,16 +441,38 @@ export const S = {
   fxArea: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
+    gap: 6,
     padding: '8px 10px 10px',
     borderTop: '1px solid var(--border)',
     background: 'rgba(255,255,255,0.015)',
     flexShrink: 0,
   },
   sliderRow: {
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: '34px minmax(0, 1fr) 30px',
     alignItems: 'center',
     gap: 6,
+  },
+  fxSliderRow: {
+    display: 'grid',
+    gridTemplateColumns: '24px minmax(0, 1fr)',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 28,
+  },
+  fxIconBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fxIconSvg: {
+    width: 19,
+    height: 19,
+    display: 'block',
   },
   sliderLabel: {
     fontSize: 9,
@@ -385,9 +481,20 @@ export const S = {
     flexShrink: 0,
     width: 34,
   },
+  fxSliderLabel: {
+    fontSize: 9,
+    fontWeight: 800,
+    textAlign: 'center',
+    lineHeight: 1,
+  },
   slider: {
     flex: 1,
     minWidth: 0,
+    width: '100%',
+  },
+  fxSlider: {
+    minWidth: 0,
+    width: '100%',
   },
   sliderVal: {
     fontSize: 9,

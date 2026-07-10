@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { CUSTOM_START, TOTAL_BEATS } from '../audio.js'
 import { S } from '../styles.js'
+import { SoundIcon } from './PadBanks.jsx'
 
 export function Sequencer({
   pads,
@@ -13,9 +15,21 @@ export function Sequencer({
   onClear,
   onToggleCell,
 }) {
+  const [confirmClear, setConfirmClear] = useState(false)
   const visibleRows = pads
     .map((pad, padIdx) => ({ pad, padIdx }))
     .filter(({ pad }) => pad.buffer || pad.isPreset)
+
+  useEffect(() => {
+    if (!confirmClear) return undefined
+    const timeout = window.setTimeout(() => setConfirmClear(false), 4500)
+    return () => window.clearTimeout(timeout)
+  }, [confirmClear])
+
+  const confirmAndClear = () => {
+    onClear()
+    setConfirmClear(false)
+  }
 
   return (
     <section style={S.seqSection} aria-label="Step sequencer">
@@ -41,15 +55,37 @@ export function Sequencer({
           />
           <span style={S.bpmValue}>{bpm}</span>
         </div>
-        <button
-          type="button"
-          style={S.clearBtn}
-          onClick={onClear}
-          title="Clear pattern"
-          aria-label="Clear pattern"
-        >
-          Clear
-        </button>
+        <div style={S.clearGroup}>
+          {confirmClear ? (
+            <>
+              <button
+                type="button"
+                style={S.clearCancelBtn}
+                onClick={() => setConfirmClear(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                style={S.clearConfirmBtn}
+                onClick={confirmAndClear}
+                aria-label="Confirm clear pattern"
+              >
+                Clear pattern
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              style={S.clearBtn}
+              onClick={() => setConfirmClear(true)}
+              title="Clear pattern"
+              aria-label="Clear pattern"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={S.seqScrollWrapper}>
@@ -61,13 +97,17 @@ export function Sequencer({
                 key={padIdx}
                 style={{
                   ...S.seqRowLabel,
-                  color: pad.color,
                   borderTop: padIdx === CUSTOM_START ? '1px solid var(--border)' : 'none',
                   marginTop: padIdx === CUSTOM_START ? 3 : 0,
                 }}
                 title={pad.name || `Pad ${padIdx + 1}`}
               >
-                {pad.name || `Rec ${padIdx - CUSTOM_START + 1}`}
+                <SoundIcon
+                  name={pad.name}
+                  color={pad.color}
+                  custom={padIdx >= CUSTOM_START}
+                  size={15}
+                />
               </div>
             )
           })}
