@@ -19,9 +19,6 @@ export function Sequencer({
   const clearButtonRef = useRef(null)
   const cancelButtonRef = useRef(null)
   const dangerButtonRef = useRef(null)
-  const visibleRows = pads
-    .map((pad, padIdx) => ({ pad, padIdx }))
-    .filter(({ pad }) => pad.buffer || pad.isPreset)
 
   useEffect(() => {
     if (!confirmClear) return undefined
@@ -139,7 +136,8 @@ export function Sequencer({
       <div style={S.seqScrollWrapper}>
         <div style={S.seqLabelsCol} aria-hidden="true">
           <div style={{ height: 16, flexShrink: 0 }} />
-          {visibleRows.map(({ pad, padIdx }) => {
+          {pads.map((pad, padIdx) => {
+            const hasSound = pad.buffer || pad.isPreset
             return (
               <div
                 key={padIdx}
@@ -147,6 +145,7 @@ export function Sequencer({
                   ...S.seqRowLabel,
                   borderTop: padIdx === CUSTOM_START ? '1px solid var(--border)' : 'none',
                   marginTop: padIdx === CUSTOM_START ? 3 : 0,
+                  opacity: hasSound ? 1 : 0.25,
                 }}
                 title={pad.name || `Pad ${padIdx + 1}`}
               >
@@ -154,6 +153,7 @@ export function Sequencer({
                   name={pad.name}
                   color={pad.color}
                   custom={padIdx >= CUSTOM_START}
+                  empty={!hasSound}
                   size={15}
                 />
               </div>
@@ -177,7 +177,8 @@ export function Sequencer({
                 </div>
               ))}
             </div>
-            {visibleRows.map(({ pad, padIdx }) => {
+            {pads.map((pad, padIdx) => {
+              const hasSound = pad.buffer || pad.isPreset
               return (
                 <div
                   key={padIdx}
@@ -196,6 +197,7 @@ export function Sequencer({
                       <button
                         key={beatIdx}
                         type="button"
+                        disabled={!hasSound}
                         onClick={() => onToggleCell(padIdx, beatIdx)}
                         aria-label={`${pad.name || `Pad ${padIdx + 1}`} beat ${beatIdx + 1}`}
                         aria-pressed={on}
@@ -209,7 +211,8 @@ export function Sequencer({
                                 ? 'var(--surface)'
                                 : 'rgba(255,255,255,0.015)',
                           borderColor: cur ? 'var(--accent)' : on ? `${pad.color}66` : 'var(--border)',
-                          cursor: 'pointer',
+                          opacity: hasSound ? 1 : 0.12,
+                          cursor: hasSound ? 'pointer' : 'default',
                           boxShadow: on && cur ? `0 0 6px ${pad.color}55` : 'none',
                         }}
                       />

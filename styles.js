@@ -147,7 +147,7 @@ export const S = {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
-    flex: '0 1 auto',
+    flex: 1,
     minHeight: 0,
     overflow: 'hidden',
   },
@@ -267,9 +267,8 @@ export const S = {
   },
   seqScrollWrapper: {
     display: 'flex',
-    flex: '0 1 auto',
+    flex: 1,
     minHeight: 0,
-    maxHeight: 'min(48vh, 390px)',
     overflow: 'hidden',
   },
   seqLabelsCol: {
@@ -329,8 +328,7 @@ export const S = {
     display: 'flex',
     gap: 12,
     alignItems: 'stretch',
-    flex: '1 1 0',
-    minHeight: 0,
+    flexShrink: 0,
   },
   padArea: {
     width: 'min(56%, 248px)',
