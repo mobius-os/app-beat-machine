@@ -80,6 +80,7 @@ export default function BeatMachine({ appId, token }) {
 
   const saveTimerRef = useRef(null)
   const readySignalRef = useRef(false)
+  const firstStepRef = useRef(false)
   const recordingTimerRef = useRef(null)
   const recProcessorRef = useRef(null)
   const recSilentRef = useRef(null)
@@ -250,6 +251,13 @@ export default function BeatMachine({ appId, token }) {
     }
     loop()
     signal('playback_started')
+    const activeSteps = gridRef.current.reduce(
+      (sum, row) => sum + row.filter(Boolean).length,
+      0,
+    )
+    if (activeSteps > 0) {
+      signal('pattern_played', { active_steps: activeSteps, bpm: bpmRef.current })
+    }
   }, [initPresets, scheduler])
 
   const cleanupRecording = useCallback(() => {
@@ -434,11 +442,16 @@ export default function BeatMachine({ appId, token }) {
 
   const toggleCell = useCallback((padIdx, beatIdx) => {
     initPresets()
+    const turningOn = !gridRef.current[padIdx]?.[beatIdx]
     setGrid((prev) => {
       const next = prev.map((row) => [...row])
       next[padIdx][beatIdx] = !next[padIdx][beatIdx]
       return next
     })
+    if (turningOn && !firstStepRef.current) {
+      firstStepRef.current = true
+      signal('first_step_placed', { kind: padIdx < CUSTOM_START ? 'kit' : 'sample' })
+    }
   }, [initPresets, setGrid])
 
   const clearGrid = useCallback(() => {

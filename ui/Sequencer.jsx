@@ -212,10 +212,10 @@ export function Sequencer({
                           background: on
                             ? pad.color
                             : cur
-                              ? 'rgba(255,255,255,0.06)'
+                              ? 'color-mix(in srgb, var(--text) 12%, var(--surface))'
                               : beatIdx % 8 < 4
                                 ? 'var(--surface)'
-                                : 'rgba(255,255,255,0.015)',
+                                : 'var(--surface2)',
                           borderColor: cur ? 'var(--accent)' : on ? `${pad.color}66` : 'var(--border)',
                           opacity: hasSound ? 1 : 0.12,
                           cursor: hasSound ? 'pointer' : 'default',
