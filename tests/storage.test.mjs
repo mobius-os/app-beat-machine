@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -11,6 +12,48 @@ const execFileAsync = promisify(execFile)
 const root = dirname(fileURLToPath(import.meta.url))
 const buildDir = join(root, '.build')
 const bundled = join(buildDir, 'storage.mjs')
+
+test('manifest and storage bridge agree on the offline contract', async () => {
+  const manifest = JSON.parse(readFileSync(join(root, '..', 'mobius.json'), 'utf8'))
+  assert.equal(manifest.offline_capable, true)
+  assert.deepEqual(
+    { reads: manifest.offline.reads, writes: manifest.offline.writes, execution: manifest.offline.execution },
+    { reads: true, writes: 'queued', execution: 'none' },
+  )
+
+  const calls = []
+  const oldFetch = globalThis.fetch
+  globalThis.window = {
+    mobius: {
+      storage: {
+        get: async (path) => {
+          calls.push(['get', path])
+          return { bpm: 96 }
+        },
+        set: async (path, value) => {
+          calls.push(['set', path, value])
+          return { queued: true }
+        },
+      },
+    },
+  }
+  globalThis.fetch = async () => {
+    throw new Error('offline-capable storage must not bypass the Mobius runtime')
+  }
+  try {
+    const { loadBeatState, saveBeatState } = await bundle()
+    assert.equal((await loadBeatState('beat-machine', 'tok')).bpm, 96)
+    await saveBeatState('beat-machine', 'tok', { bpm: 96 })
+    assert.deepEqual(calls.map(([method, path]) => [method, path]), [
+      ['get', 'state.json'],
+      ['set', 'state.json'],
+    ])
+    assert.equal(calls[1][2].version, 2)
+  } finally {
+    globalThis.fetch = oldFetch
+    delete globalThis.window
+  }
+})
 
 async function bundle() {
   await rm(buildDir, { recursive: true, force: true })
