@@ -65,7 +65,7 @@ export function Sequencer({
       <div style={S.transport}>
         <button
           type="button"
-          style={{ ...S.transportBtn, background: playing ? '#f87171' : 'var(--accent)' }}
+          style={{ ...S.transportBtn, background: playing ? 'var(--danger)' : 'var(--accent)' }}
           onClick={onTogglePlay}
           aria-pressed={playing}
         >
