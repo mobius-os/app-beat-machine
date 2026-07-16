@@ -13,3 +13,10 @@ test('dense sequencer and range controls keep practical touch targets', () => {
   assert.match(styles, /\.bm-root \.bm-bpm-range\s*\{[\s\S]*min-height:\s*44px/)
   assert.match(sequencer, /className="bm-bpm-range"/)
 })
+
+test('sequencer groups expose valid ARIA and filled actions keep AA contrast', () => {
+  assert.match(sequencer, /role="group"/)
+  assert.doesNotMatch(sequencer, /role="row"/)
+  assert.match(sequencer, /var\(--accent-hover, var\(--accent\)\)/)
+  assert.match(styles, /emptyHint:\s*\{[\s\S]*opacity:\s*1/)
+})

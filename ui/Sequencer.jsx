@@ -65,7 +65,7 @@ export function Sequencer({
       <div style={S.transport}>
         <button
           type="button"
-          style={{ ...S.transportBtn, background: playing ? 'var(--danger)' : 'var(--accent)' }}
+          style={{ ...S.transportBtn, background: playing ? 'var(--danger)' : 'var(--accent-hover, var(--accent))' }}
           onClick={onTogglePlay}
           aria-pressed={playing}
         >
@@ -194,7 +194,7 @@ export function Sequencer({
                     borderTop: startsCustomRows ? '1px solid var(--border)' : 'none',
                     marginTop: startsCustomRows ? 3 : 0,
                   }}
-                  role="row"
+                  role="group"
                   aria-label={pad.name || `Pad ${padIdx + 1}`}
                 >
                   {Array.from({ length: TOTAL_BEATS }, (_, beatIdx) => {
