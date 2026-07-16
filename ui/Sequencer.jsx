@@ -75,6 +75,7 @@ export function Sequencer({
           <label style={S.bpmLabel} htmlFor="bm-bpm">BPM</label>
           <input
             id="bm-bpm"
+            className="bm-bpm-range"
             type="range"
             min={60}
             max={200}

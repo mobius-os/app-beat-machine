@@ -32,8 +32,12 @@ export const CSS = `
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
-  height: 22px;
+  height: 44px;
   cursor: pointer;
+}
+.bm-root .bm-bpm-range {
+  min-height: 44px;
+  touch-action: manipulation;
 }
 .bm-root .bm-slider::-webkit-slider-runnable-track {
   height: 8px;
@@ -277,7 +281,7 @@ export const S = {
   seqLabelsCol: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 1,
+    gap: 2,
     flexShrink: 0,
   },
   seqScrollArea: {
@@ -290,13 +294,13 @@ export const S = {
   seqGridInner: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 1,
-    minWidth: TOTAL_BEATS * 29,
+    gap: 2,
+    minWidth: TOTAL_BEATS * 34,
   },
   beatNumbers: {
     display: 'grid',
     gridTemplateColumns: `repeat(${TOTAL_BEATS}, 1fr)`,
-    gap: 1,
+    gap: 2,
     height: 12,
   },
   beatNum: {
@@ -306,7 +310,7 @@ export const S = {
     fontSize: 8,
     lineHeight: 1,
     padding: 0,
-    minWidth: 27,
+    minWidth: 32,
     fontVariantNumeric: 'tabular-nums',
   },
   seqHeaderSpacer: {
@@ -320,19 +324,19 @@ export const S = {
     alignItems: 'center',
     justifyContent: 'center',
     paddingRight: 5,
-    height: 21,
+    height: 32,
   },
   seqCells: {
     display: 'grid',
     gridTemplateColumns: `repeat(${TOTAL_BEATS}, 1fr)`,
-    gap: 1,
+    gap: 2,
   },
   cell: {
-    height: 21,
+    height: 32,
     borderRadius: 3,
     border: '1px solid var(--border)',
     transition: 'background 0.08s, border-color 0.08s, opacity 0.08s',
-    minWidth: 27,
+    minWidth: 32,
     padding: 0,
   },
   bottomSection: {
@@ -528,7 +532,7 @@ export const S = {
     gridTemplateColumns: '24px minmax(0, 1fr)',
     alignItems: 'center',
     gap: 5,
-    minHeight: 28,
+    minHeight: 44,
   },
   fxIconBadge: {
     width: 24,
