@@ -61,7 +61,7 @@ export function Sequencer({
   }
 
   return (
-    <section style={S.seqSection} aria-label="Step sequencer">
+    <section className="bm-sequencer" style={S.seqSection} aria-label="Step sequencer">
       <div style={S.transport}>
         <button
           type="button"
@@ -138,8 +138,8 @@ export function Sequencer({
         </div>
       )}
 
-      <div className="bm-scroll-skin" style={S.seqScrollWrapper}>
-        <div style={S.seqLabelsCol} aria-hidden="true">
+      <div className="bm-scroll-skin bm-seq-viewport" style={S.seqScrollWrapper}>
+        <div className="bm-seq-labels" style={S.seqLabelsCol} aria-hidden="true">
           <div style={S.seqHeaderSpacer} />
           {visibleRows.map(({ pad, padIdx }) => {
             const hasSound = pad.buffer || pad.isPreset
@@ -147,6 +147,7 @@ export function Sequencer({
             return (
               <div
                 key={padIdx}
+                className="bm-seq-row-label"
                 style={{
                   ...S.seqRowLabel,
                   borderTop: startsCustomRows ? '1px solid var(--border)' : 'none',
@@ -168,7 +169,7 @@ export function Sequencer({
         </div>
 
         <div className="bm-scroll-skin" style={S.seqScrollArea} ref={seqScrollRef}>
-          <div style={S.seqGridInner}>
+          <div className="bm-seq-grid" style={S.seqGridInner}>
             <div style={S.beatNumbers} aria-hidden="true">
               {Array.from({ length: TOTAL_BEATS }, (_, beatIdx) => (
                 <div
@@ -189,6 +190,7 @@ export function Sequencer({
               return (
                 <div
                   key={padIdx}
+                  className="bm-seq-cells"
                   style={{
                     ...S.seqCells,
                     borderTop: startsCustomRows ? '1px solid var(--border)' : 'none',

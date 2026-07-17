@@ -71,24 +71,15 @@ export default function BeatMachine({ appId, token }) {
   const [isRecording, setIsRecording] = useState(false)
   const isRecordingRef = useRef(false)
   const [recordTarget, setRecordTarget] = useState(null)
-  const recordTargetRef = useRef(null)
   const recordIntentRef = useRef(null)
-  const [renamingPad, setRenamingPad] = useState(null)
-  const [renameVal, setRenameVal] = useState('')
   const [stateLoaded, setStateLoaded] = useState(false)
   const [toast, setToast] = useState('')
 
   const saveTimerRef = useRef(null)
   const readySignalRef = useRef(false)
   const firstStepRef = useRef(false)
-  const recordingTimerRef = useRef(null)
-  const recProcessorRef = useRef(null)
-  const recSilentRef = useRef(null)
-  const recChunksRef = useRef([])
-  const analyserRef = useRef(null)
-  const animFrameRef = useRef(null)
-  const streamRef = useRef(null)
-  const recSourceRef = useRef(null)
+  const recordingSessionRef = useRef(null)
+  const recLevelsRef = useRef([])
   const liveCanvasRef = useRef(null)
   const waveCanvasRef = useRef(null)
   const seqScrollRef = useRef(null)
@@ -99,7 +90,6 @@ export default function BeatMachine({ appId, token }) {
   useEffect(() => { bpmRef.current = bpm }, [bpm])
   useEffect(() => { echoRef.current = echo }, [echo])
   useEffect(() => { reverbRef.current = reverb }, [reverb])
-  useEffect(() => { recordTargetRef.current = recordTarget }, [recordTarget])
 
   const showToast = useCallback((message) => {
     setToast(message)
@@ -260,44 +250,33 @@ export default function BeatMachine({ appId, token }) {
     }
   }, [initPresets, scheduler])
 
-  const cleanupRecording = useCallback(() => {
+  const cleanupRecording = useCallback((cancelSession = true) => {
     recordIntentRef.current = null
-    window.clearTimeout(recordingTimerRef.current)
-    recordingTimerRef.current = null
-    window.cancelAnimationFrame(animFrameRef.current)
-    if (recProcessorRef.current) {
-      recProcessorRef.current.onaudioprocess = null
-      try { recProcessorRef.current.disconnect() } catch {}
-      recProcessorRef.current = null
-    }
-    if (recSilentRef.current) {
-      try { recSilentRef.current.disconnect() } catch {}
-      recSilentRef.current = null
-    }
-    if (recSourceRef.current) {
-      try { recSourceRef.current.disconnect() } catch {}
-      recSourceRef.current = null
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
-      streamRef.current = null
-    }
-    analyserRef.current = null
+    const session = recordingSessionRef.current
+    recordingSessionRef.current = null
+    if (cancelSession) session?.cancel?.()
+    recLevelsRef.current = []
   }, [])
 
-  const stopRecording = useCallback(() => {
-    const target = recordTargetRef.current
-    const engine = engineRef.current
-    const chunks = recChunksRef.current
-    cleanupRecording()
-    recChunksRef.current = []
+  const resetRecordingState = useCallback(() => {
     setIsRecording(false)
     isRecordingRef.current = false
     setRecordTarget(null)
-    recordTargetRef.current = null
+    setActivePadIdx(null)
+  }, [])
 
-    if (!engine || target === null || chunks.length === 0) return
-    const buffer = createRecordingBuffer(engine.ctx, chunks, MAX_RECORD_SECONDS)
+  const saveRecording = useCallback((session, target, result) => {
+    if (recordingSessionRef.current !== session) return
+    const engine = engineRef.current
+    cleanupRecording(false)
+    resetRecordingState()
+    if (!engine || target === null || !result?.samples?.length) return
+    const buffer = createRecordingBuffer(
+      engine.ctx,
+      [result.samples],
+      MAX_RECORD_SECONDS,
+      result.sampleRate,
+    )
     if (!buffer) return
     setPads((prev) => {
       const next = [...prev]
@@ -312,7 +291,23 @@ export default function BeatMachine({ appId, token }) {
     })
     setSelectedPad(target)
     signal('item_created', { type: 'sample' })
-  }, [cleanupRecording, setPads])
+  }, [cleanupRecording, resetRecordingState, setPads])
+
+  const failRecording = useCallback((session, error) => {
+    if (recordingSessionRef.current !== session) return
+    cleanupRecording(false)
+    resetRecordingState()
+    if (error?.name === 'AbortError') return
+    const message = error?.name === 'NotAllowedError'
+      ? 'Microphone access was denied. Enable it in your browser settings and try again.'
+      : String(error?.message || 'Microphone recording failed.')
+    showToast(message)
+    signal('record_failed', { message })
+  }, [cleanupRecording, resetRecordingState, showToast])
+
+  const stopRecording = useCallback(() => {
+    recordingSessionRef.current?.stop?.()
+  }, [])
 
   const startRecording = useCallback(async (padIdx) => {
     if (
@@ -321,72 +316,46 @@ export default function BeatMachine({ appId, token }) {
       recordIntentRef.current !== null
     ) return
     recordIntentRef.current = padIdx
+    let session = null
     try {
-      const engine = initPresets()
-      if (!navigator.mediaDevices?.getUserMedia) {
+      initPresets()
+      if (!window.mobius?.microphone?.start) {
         throw new Error('Microphone recording is unavailable in this browser.')
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+      session = window.mobius.microphone.start({
+        maxSeconds: MAX_RECORD_SECONDS,
+        onLevel(level) {
+          const levels = recLevelsRef.current
+          levels.push(level)
+          if (levels.length > 96) levels.splice(0, levels.length - 96)
+          drawLiveWaveform(liveCanvasRef.current, levels)
         },
       })
+      recordingSessionRef.current = session
+      await session.started
       if (recordIntentRef.current !== padIdx) {
-        stream.getTracks().forEach((track) => track.stop())
+        session.cancel()
         return
       }
-      streamRef.current = stream
-      const source = engine.ctx.createMediaStreamSource(stream)
-      const analyser = engine.ctx.createAnalyser()
-      analyser.fftSize = 2048
-      source.connect(analyser)
-
-      const processor = engine.ctx.createScriptProcessor(4096, 1, 1)
-      const silent = engine.ctx.createGain()
-      silent.gain.value = 0
-      source.connect(processor)
-      processor.connect(silent)
-      silent.connect(engine.ctx.destination)
-
-      recSourceRef.current = source
-      analyserRef.current = analyser
-      recProcessorRef.current = processor
-      recSilentRef.current = silent
-      recChunksRef.current = []
-      processor.onaudioprocess = (event) => {
-        recChunksRef.current.push(new Float32Array(event.inputBuffer.getChannelData(0)))
-      }
-
       setRecordTarget(padIdx)
-      recordTargetRef.current = padIdx
       setIsRecording(true)
       isRecordingRef.current = true
       recordIntentRef.current = null
       setSelectedPad(padIdx)
-      recordingTimerRef.current = window.setTimeout(() => {
-        showToast('Recording saved')
-        stopRecording()
-      }, MAX_RECORD_SECONDS * 1000)
-
-      const drawLoop = () => {
-        drawLiveWaveform(liveCanvasRef.current, analyserRef.current)
-        animFrameRef.current = window.requestAnimationFrame(drawLoop)
-      }
-      drawLoop()
       signal('record_started')
+      session.done
+        .then((result) => saveRecording(session, padIdx, result))
+        .catch((error) => failRecording(session, error))
     } catch (err) {
-      cleanupRecording()
-      setIsRecording(false)
-      isRecordingRef.current = false
-      setRecordTarget(null)
-      recordTargetRef.current = null
-      setActivePadIdx(null)
-      showToast(String(err?.message || 'Microphone permission was not granted'))
-      signal('record_failed', { message: String(err?.message || err) })
+      if (session) failRecording(session, err)
+      else {
+        recordIntentRef.current = null
+        resetRecordingState()
+        showToast(String(err?.message || 'Microphone recording failed.'))
+        signal('record_failed', { message: String(err?.message || err) })
+      }
     }
-  }, [cleanupRecording, initPresets, showToast, stopRecording])
+  }, [failRecording, initPresets, resetRecordingState, saveRecording, showToast])
 
   const playPad = useCallback((padIdx) => {
     const engine = initPresets()
@@ -414,6 +383,7 @@ export default function BeatMachine({ appId, token }) {
   const handlePadUp = useCallback(() => {
     if (!isRecordingRef.current && recordIntentRef.current !== null) {
       recordIntentRef.current = null
+      recordingSessionRef.current?.cancel?.()
     }
     if (isRecordingRef.current) stopRecording()
     if (activeSrcRef.current) {
@@ -490,24 +460,6 @@ export default function BeatMachine({ appId, token }) {
     }
   }, [currentBeat])
 
-  const startRename = useCallback((padIdx) => {
-    if (padIdx < CUSTOM_START) return
-    setRenamingPad(padIdx)
-    setRenameVal(padsRef.current[padIdx]?.name || `Rec ${padIdx - CUSTOM_START + 1}`)
-  }, [])
-
-  const finishRename = useCallback(() => {
-    const name = renameVal.trim().slice(0, 12)
-    if (renamingPad !== null && name) {
-      setPads((prev) => {
-        const next = [...prev]
-        next[renamingPad] = { ...next[renamingPad], name }
-        return next
-      })
-    }
-    setRenamingPad(null)
-  }, [renameVal, renamingPad, setPads])
-
   const setPadVolume = useCallback((padIdx, value) => {
     setVolumes((prev) => {
       const next = [...prev]
@@ -520,7 +472,6 @@ export default function BeatMachine({ appId, token }) {
     window.clearTimeout(schedulerRef.current)
     window.clearTimeout(saveTimerRef.current)
     window.clearTimeout(showToast.timer)
-    window.cancelAnimationFrame(animFrameRef.current)
     cleanupRecording()
     if (engineRef.current) engineRef.current.dispose()
   }, [cleanupRecording])
@@ -543,7 +494,7 @@ export default function BeatMachine({ appId, token }) {
         onToggleCell={toggleCell}
       />
 
-      <div style={S.bottomSection}>
+      <div className="bm-bottom" style={S.bottomSection}>
         <PadBanks
           pads={pads}
           selectedPad={selectedPad}
@@ -562,15 +513,8 @@ export default function BeatMachine({ appId, token }) {
           reverb={reverb}
           isRecording={isRecording}
           recordTarget={recordTarget}
-          renamingPad={renamingPad}
-          renameVal={renameVal}
           liveCanvasRef={liveCanvasRef}
           waveCanvasRef={waveCanvasRef}
-          onRenameValChange={setRenameVal}
-          onRenameFinish={finishRename}
-          onRenameCancel={() => setRenamingPad(null)}
-          onStartRename={startRename}
-          onClearPad={clearPad}
           onVolumeChange={setPadVolume}
           onEchoChange={setEcho}
           onReverbChange={setReverb}

@@ -401,15 +401,20 @@ export function restoreSavedAudio(ctx, saved) {
   return buffer
 }
 
-export function createRecordingBuffer(ctx, chunks, maxSeconds = MAX_RECORD_SECONDS) {
+export function createRecordingBuffer(
+  ctx,
+  chunks,
+  maxSeconds = MAX_RECORD_SECONDS,
+  sampleRate = ctx.sampleRate,
+) {
   const sourceLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
   const cappedLength = Number.isFinite(maxSeconds)
-    ? Math.round(ctx.sampleRate * Math.max(0.1, maxSeconds))
+    ? Math.round(sampleRate * Math.max(0.1, maxSeconds))
     : sourceLength
   const length = Math.min(sourceLength, cappedLength)
   if (!length) return null
 
-  const buffer = ctx.createBuffer(1, length, ctx.sampleRate)
+  const buffer = ctx.createBuffer(1, length, sampleRate)
   const data = buffer.getChannelData(0)
   let offset = 0
   for (const chunk of chunks) {
@@ -530,18 +535,30 @@ export function drawLiveWaveform(canvas, analyser) {
   canvas.height = Math.round(height * dpr)
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-  const data = new Uint8Array(analyser.fftSize)
-  analyser.getByteTimeDomainData(data)
   ctx.clearRect(0, 0, width, height)
   ctx.strokeStyle = cssVar('--danger', '#f87171')
   ctx.lineWidth = 2
   ctx.beginPath()
-  const slice = width / data.length
-  for (let i = 0; i < data.length; i += 1) {
-    const x = i * slice
-    const y = (data[i] / 255) * height
-    if (i === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
+  if (Array.isArray(analyser)) {
+    const levels = analyser.length ? analyser : [0]
+    const slice = width / Math.max(1, levels.length - 1)
+    for (let i = 0; i < levels.length; i += 1) {
+      const x = i * slice
+      const direction = i % 2 === 0 ? -1 : 1
+      const y = height / 2 + direction * Math.min(1, levels[i] || 0) * height * 0.44
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    }
+  } else {
+    const data = new Uint8Array(analyser.fftSize)
+    analyser.getByteTimeDomainData(data)
+    const slice = width / data.length
+    for (let i = 0; i < data.length; i += 1) {
+      const x = i * slice
+      const y = (data[i] / 255) * height
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    }
   }
   ctx.stroke()
 }

@@ -16,6 +16,48 @@ export const CSS = `
     filter: brightness(1.08);
   }
 }
+.bm-root {
+  overflow-y: hidden !important;
+}
+.bm-root .bm-sequencer {
+  flex: 1 1 auto !important;
+  overflow: hidden !important;
+}
+.bm-root .bm-seq-viewport {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+.bm-root .bm-bottom {
+  flex: 0 0 auto !important;
+  margin-top: auto;
+}
+.bm-root .bm-seq-labels,
+.bm-root .bm-seq-grid {
+  height: 100%;
+  min-height: 0;
+}
+.bm-root .bm-seq-row-label,
+.bm-root .bm-seq-cells {
+  flex: 1 1 0;
+  min-height: 18px;
+  max-height: 32px;
+}
+.bm-root .bm-seq-row-label {
+  height: auto !important;
+}
+.bm-root .bm-seq-cells > button {
+  height: 100% !important;
+}
+@media (max-width: 700px) {
+  .bm-root .bm-sample-panel {
+    gap: 4px !important;
+    padding: 6px 8px !important;
+  }
+  .bm-root .bm-sample-waveform {
+    display: none !important;
+  }
+}
 .bm-root button:not(:disabled):active {
   filter: brightness(0.96);
 }
@@ -277,6 +319,7 @@ export const S = {
     overflowX: 'hidden',
     overflowY: 'auto',
     touchAction: 'pan-x pan-y',
+    overscrollBehavior: 'contain',
   },
   seqLabelsCol: {
     display: 'flex',
@@ -296,6 +339,8 @@ export const S = {
     flexDirection: 'column',
     gap: 2,
     minWidth: TOTAL_BEATS * 34,
+    height: '100%',
+    minHeight: 0,
   },
   beatNumbers: {
     display: 'grid',
@@ -438,12 +483,19 @@ export const S = {
     minHeight: 0,
     overflow: 'hidden',
   },
-  selRow: {
+  sampleHeader: {
     display: 'flex',
     alignItems: 'center',
     gap: 5,
     flexShrink: 0,
-    flexWrap: 'wrap',
+    width: '100%',
+    minWidth: 0,
+  },
+  sampleIdentity: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    flex: 1,
     minWidth: 0,
   },
   selectedIconSlot: {
@@ -491,26 +543,6 @@ export const S = {
     lineHeight: 1.5,
     opacity: 1,
     padding: '8px 10px',
-  },
-  tinyBtn: {
-    width: 44,
-    height: 44,
-    padding: 0,
-    borderRadius: 5,
-    border: '1px solid var(--border)',
-    background: 'transparent',
-    color: 'var(--muted)',
-    cursor: 'pointer',
-    fontFamily: 'var(--font)',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: '0 0 auto',
-  },
-  tinyBtnIcon: {
-    width: 14,
-    height: 14,
-    display: 'block',
   },
   fxArea: {
     display: 'flex',
@@ -594,28 +626,5 @@ export const S = {
     background: 'var(--accent-dim)',
     color: 'var(--accent)',
     fontWeight: 700,
-  },
-  renameInput: {
-    background: 'var(--bg)',
-    border: '1px solid var(--accent)',
-    borderRadius: 5,
-    color: 'var(--text)',
-    padding: '4px 8px',
-    fontSize: 11,
-    textAlign: 'center',
-    width: '100%',
-    fontFamily: 'var(--font)',
-  },
-  renameBtn: {
-    minHeight: 44,
-    padding: '4px 12px',
-    borderRadius: 5,
-    border: 'none',
-    background: 'var(--accent-hover, var(--accent))',
-    color: 'var(--accent-fg)',
-    fontSize: 9,
-    fontWeight: 650,
-    cursor: 'pointer',
-    fontFamily: 'var(--font)',
   },
 }
