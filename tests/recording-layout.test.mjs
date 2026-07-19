@@ -7,9 +7,12 @@ const styles = readFileSync(new URL('../styles.js', import.meta.url), 'utf8')
 const controls = readFileSync(new URL('../ui/ControlPanel.jsx', import.meta.url), 'utf8')
 
 test('recording uses the trusted Möbius microphone bridge', () => {
-  assert.match(index, /window\.mobius\.microphone\.start/)
-  assert.match(index, /await session\.started/)
-  assert.match(index, /session\.done[\s\S]*saveRecording/)
+  // The runtime exposes microphone capture through the capability broker
+  // (window.mobius.capabilities.open('media.microphone.capture')); the older
+  // window.mobius.microphone.start bridge no longer exists on the shell.
+  assert.match(index, /capabilities\.open\('media\.microphone\.capture'/)
+  assert.match(index, /await session\.ready/)
+  assert.match(index, /session\.result[\s\S]*saveRecording/)
   assert.doesNotMatch(index, /navigator\.mediaDevices|getUserMedia/)
 })
 

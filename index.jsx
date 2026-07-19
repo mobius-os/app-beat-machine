@@ -306,7 +306,7 @@ export default function BeatMachine({ appId, token }) {
   }, [cleanupRecording, resetRecordingState, showToast])
 
   const stopRecording = useCallback(() => {
-    recordingSessionRef.current?.stop?.()
+    recordingSessionRef.current?.finish?.()
   }, [])
 
   const startRecording = useCallback(async (padIdx) => {
@@ -319,20 +319,21 @@ export default function BeatMachine({ appId, token }) {
     let session = null
     try {
       initPresets()
-      if (!window.mobius?.microphone?.start) {
+      const capabilities = window.mobius?.capabilities
+      if (!capabilities?.available?.('media.microphone.capture', 1)) {
         throw new Error('Microphone recording is unavailable in this browser.')
       }
-      session = window.mobius.microphone.start({
-        maxSeconds: MAX_RECORD_SECONDS,
-        onLevel(level) {
-          const levels = recLevelsRef.current
-          levels.push(level)
-          if (levels.length > 96) levels.splice(0, levels.length - 96)
-          drawLiveWaveform(liveCanvasRef.current, levels)
-        },
+      session = capabilities.open('media.microphone.capture', {
+        maxDurationMs: MAX_RECORD_SECONDS * 1000,
+      })
+      session.on('level', (level) => {
+        const levels = recLevelsRef.current
+        levels.push(level)
+        if (levels.length > 96) levels.splice(0, levels.length - 96)
+        drawLiveWaveform(liveCanvasRef.current, levels)
       })
       recordingSessionRef.current = session
-      await session.started
+      await session.ready
       if (recordIntentRef.current !== padIdx) {
         session.cancel()
         return
@@ -343,7 +344,7 @@ export default function BeatMachine({ appId, token }) {
       recordIntentRef.current = null
       setSelectedPad(padIdx)
       signal('record_started')
-      session.done
+      session.result
         .then((result) => saveRecording(session, padIdx, result))
         .catch((error) => failRecording(session, error))
     } catch (err) {
