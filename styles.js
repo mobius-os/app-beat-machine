@@ -54,9 +54,6 @@ export const CSS = `
     gap: 4px !important;
     padding: 6px 8px !important;
   }
-  .bm-root .bm-sample-waveform {
-    display: none !important;
-  }
 }
 .bm-root button:not(:disabled):active {
   filter: brightness(0.96);

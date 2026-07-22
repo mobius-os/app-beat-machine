@@ -121,7 +121,6 @@ export function PadBanks({
   recordTarget,
   onPadDown,
   onPadUp,
-  onClearPad,
 }) {
   const handleKeyDown = (event, idx) => {
     if (!ACTIVATION_KEYS.has(event.key) || event.repeat) return
@@ -145,7 +144,7 @@ export function PadBanks({
             type="button"
             aria-label={`${pad.name} pad ${idx + 1}`}
             aria-pressed={selectedPad === idx}
-            title={pad.name}
+            title={`${pad.name} · tap to play in full`}
             onPointerDown={(event) => {
               event.preventDefault()
               onPadDown(idx)
@@ -178,7 +177,9 @@ export function PadBanks({
               type="button"
               aria-label={`${pad.name || `Custom pad ${offset + 1}`} pad ${idx + 1}`}
               aria-pressed={selectedPad === idx}
-              title={pad.buffer ? pad.name || `Rec ${offset + 1}` : 'Hold to record'}
+              title={pad.buffer
+                ? `${pad.name || `Rec ${offset + 1}`} · tap to play · hold to delete`
+                : 'Hold to record'}
               onPointerDown={(event) => {
                 event.preventDefault()
                 onPadDown(idx)
@@ -187,7 +188,6 @@ export function PadBanks({
               onKeyUp={handleKeyUp}
               onContextMenu={(event) => {
                 event.preventDefault()
-                if (pad.buffer) onClearPad(idx)
               }}
               style={{
                 ...S.pad,

@@ -112,7 +112,11 @@ export function ControlPanel({
           />
         </div>
       ) : (
-        <div style={S.emptyHint}>Tap a sound to preview{'\n'}Hold an empty custom pad to record</div>
+        <div style={S.emptyHint}>
+          Tap a sound to play in full{'\n'}
+          Hold an empty pad to record{'\n'}
+          Hold a recording to delete
+        </div>
       )}
 
       <div style={S.fxArea}>

@@ -414,17 +414,48 @@ export function createRecordingBuffer(
   const length = Math.min(sourceLength, cappedLength)
   if (!length) return null
 
-  const buffer = ctx.createBuffer(1, length, sampleRate)
-  const data = buffer.getChannelData(0)
+  const captured = new Float32Array(length)
   let offset = 0
   for (const chunk of chunks) {
     if (offset >= length) break
     const next = chunk.subarray(0, Math.min(chunk.length, length - offset))
-    data.set(next, offset)
+    captured.set(next, offset)
     offset += next.length
   }
+
+  const start = findRecordingStart(captured, sampleRate)
+  const trimmed = captured.subarray(start)
+  const buffer = ctx.createBuffer(1, trimmed.length, sampleRate)
+  const data = buffer.getChannelData(0)
+  data.set(trimmed)
   normalize(data)
   return buffer
+}
+
+export function findRecordingStart(data, sampleRate) {
+  if (!data?.length) return 0
+
+  let peak = 0
+  for (let i = 0; i < data.length; i += 1) peak = Math.max(peak, Math.abs(data[i]))
+  // A very quiet capture has no trustworthy onset. Keep it intact rather than
+  // guessing and cutting into a soft sound.
+  if (peak < 0.02) return 0
+
+  const sr = Math.max(1, Number(sampleRate) || 44100)
+  const windowSize = Math.max(16, Math.round(sr * 0.003))
+  const threshold = Math.max(0.006, Math.min(0.03, peak * 0.05))
+  const thresholdSq = threshold * threshold
+
+  for (let start = 0; start < data.length; start += windowSize) {
+    const end = Math.min(data.length, start + windowSize)
+    let energy = 0
+    for (let i = start; i < end; i += 1) energy += data[i] * data[i]
+    if (energy / (end - start) >= thresholdSq) {
+      const preRoll = Math.round(sr * 0.012)
+      return Math.max(0, start - preRoll)
+    }
+  }
+  return 0
 }
 
 function normalize(data) {
