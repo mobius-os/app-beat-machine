@@ -1,7 +1,7 @@
 {
   "id": "beat-machine",
   "name": "Beat Machine",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "A native Möbius 32-step sequencer with drum-kit voices, custom recordings, BPM control, and simple effects.",
   "author": "mobius-os",
   "license": "MIT",
@@ -28,6 +28,7 @@
   },
   "source_files": [
     "audio.js",
+    "gestures.js",
     "storage.js",
     "styles.js",
     "ui/ControlPanel.jsx",

@@ -50,7 +50,8 @@ test('responsive layout keeps every loaded row compact above bottom controls', (
   assert.match(styles, /\.bm-root\s*\{[\s\S]*overflow-y:\s*hidden\s*!important/)
   assert.match(styles, /\.bm-root \.bm-bottom\s*\{[\s\S]*margin-top:\s*auto/)
   assert.match(styles, /\.bm-root \.bm-seq-row-label,[\s\S]*min-height:\s*18px;[\s\S]*max-height:\s*32px/)
-  assert.match(styles, /@media \(max-width:\s*700px\)[\s\S]*\.bm-root \.bm-sample-waveform\s*\{[\s\S]*display:\s*none/)
+  assert.match(controls, /className="bm-sample-waveform"/)
+  assert.doesNotMatch(styles, /\.bm-root \.bm-sample-waveform\s*\{[\s\S]*display:\s*none/)
 })
 
 test('compact sound profile omits edit, delete, and saved-recording chrome', () => {
