@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Play, Stop } from '@openai/apps-sdk-ui/components/Icon'
 import { CUSTOM_START, TOTAL_BEATS } from '../audio.js'
 import { S } from '../styles.js'
 import { SoundIcon } from './PadBanks.jsx'
@@ -69,7 +70,9 @@ export function Sequencer({
           onClick={onTogglePlay}
           aria-pressed={playing}
         >
-          {playing ? '■ Stop' : '▶ Play'}
+          {playing
+            ? <><Stop width={16} height={16} aria-hidden="true" /> Stop</>
+            : <><Play width={16} height={16} aria-hidden="true" /> Play</>}
         </button>
         <div style={S.bpmControl}>
           <label style={S.bpmLabel} htmlFor="bm-bpm">BPM</label>

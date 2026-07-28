@@ -203,6 +203,10 @@ export const S = {
     flex: '0 0 auto',
   },
   transportBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     minHeight: 44,
     padding: '6px 15px',
     borderRadius: 8,
