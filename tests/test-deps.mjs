@@ -1,12 +1,13 @@
 import { existsSync } from 'node:fs'
-import { delimiter, dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import { delimiter as pathDelimiter, dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const appRoot = resolve(here, '..')
 
 function pathEntries(value) {
-  return value ? value.split(delimiter).filter(Boolean) : []
+  return value ? value.split(pathDelimiter).filter(Boolean) : []
 }
 
 function candidateNodeModules() {
@@ -32,7 +33,7 @@ function candidateNodeModules() {
 }
 
 function hasFrontendTestDeps(nodeModules) {
-  return existsSync(join(nodeModules, '.bin', 'esbuild'))
+  return existsSync(join(nodeModules, 'rolldown'))
     && existsSync(join(nodeModules, 'react'))
 }
 
@@ -47,11 +48,23 @@ export function findFrontendNodeModules() {
 }
 
 export const frontendNodeModules = findFrontendNodeModules()
-export const esbuildPath = join(frontendNodeModules, '.bin', 'esbuild')
 
-export function buildEnv(extra = {}) {
-  const nodePath = [frontendNodeModules, process.env.NODE_PATH]
-    .filter(Boolean)
-    .join(delimiter)
-  return { ...process.env, NODE_PATH: nodePath, ...extra }
+// Möbius compiles mini-apps with Rolldown, so the tests bundle the same way.
+// Keeping the bundler behind one helper stops each test from re-encoding the
+// compiler's command line.
+export async function bundleModule({ entry, outfile, alias = {} }) {
+  const requireFromFrontend = createRequire(join(frontendNodeModules, 'package.json'))
+  const { rolldown } = await import(
+    pathToFileURL(requireFromFrontend.resolve('rolldown')).href
+  )
+  const build = await rolldown({
+    input: entry,
+    platform: 'node',
+    tsconfig: false,
+    transform: { jsx: 'react-jsx' },
+    resolve: { alias, modules: [frontendNodeModules, 'node_modules'] },
+  })
+  await build.write({ file: outfile, format: 'es' })
+  await build.close()
+  return import(pathToFileURL(outfile).href)
 }

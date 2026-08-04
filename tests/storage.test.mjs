@@ -2,13 +2,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
-import { buildEnv, esbuildPath } from './test-deps.mjs'
+import { bundleModule } from './test-deps.mjs'
 
-const execFileAsync = promisify(execFile)
 const root = dirname(fileURLToPath(import.meta.url))
 const buildDir = join(root, '.build')
 const bundled = join(buildDir, 'storage.mjs')
@@ -161,15 +158,11 @@ test('state updates without a runtime or credentials are a fetch-free no-op', as
 async function bundle() {
   await rm(buildDir, { recursive: true, force: true })
   await mkdir(buildDir, { recursive: true })
-  await execFileAsync(esbuildPath, [
-    join(root, '..', 'storage.js'),
-    '--bundle',
-    '--format=esm',
-    '--platform=node',
-    `--alias:react=${join(root, 'fixtures', 'react-stub.mjs')}`,
-    `--outfile=${bundled}`,
-  ], { env: buildEnv() })
-  return import(pathToFileURL(bundled))
+  return bundleModule({
+    entry: join(root, '..', 'storage.js'),
+    outfile: bundled,
+    alias: { react: join(root, 'fixtures', 'react-stub.mjs') },
+  })
 }
 
 test('loadBeatState returns defaults for a real missing state file', async () => {
