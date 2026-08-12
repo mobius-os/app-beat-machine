@@ -5,6 +5,7 @@ import test from 'node:test'
 const index = readFileSync(new URL('../index.jsx', import.meta.url), 'utf8')
 const styles = readFileSync(new URL('../styles.js', import.meta.url), 'utf8')
 const controls = readFileSync(new URL('../ui/ControlPanel.jsx', import.meta.url), 'utf8')
+const manifest = JSON.parse(readFileSync(new URL('../mobius.json', import.meta.url), 'utf8'))
 
 test('recording uses the trusted Möbius microphone bridge', () => {
   // The runtime exposes microphone capture through the capability broker
@@ -14,6 +15,14 @@ test('recording uses the trusted Möbius microphone bridge', () => {
   assert.match(index, /await session\.ready/)
   assert.match(index, /session\.result[\s\S]*saveRecording/)
   assert.doesNotMatch(index, /navigator\.mediaDevices|getUserMedia/)
+})
+
+test('recording declares the matching host microphone capability', () => {
+  assert.deepEqual(manifest.capabilities?.['media.microphone.capture'], {
+    version: 1,
+    reason: 'Record a custom drum pad.',
+    limits: { max_duration_ms: 8_000 },
+  })
 })
 
 test('recorded sample rate is preserved when building the audio buffer', async () => {
