@@ -1,7 +1,7 @@
 {
   "id": "beat-machine",
   "name": "Beat Machine",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "A native Möbius 32-step sequencer with drum-kit voices, custom recordings, BPM control, and simple effects.",
   "author": "mobius-os",
   "license": "MIT",
@@ -18,6 +18,15 @@
   "permissions": {
     "cross_app_access": "none",
     "share_with_apps": "none"
+  },
+  "capabilities": {
+    "media.microphone.capture": {
+      "version": 1,
+      "reason": "Record a custom drum pad.",
+      "limits": {
+        "max_duration_ms": 8000
+      }
+    }
   },
   "runtime": {
     "imports": [
