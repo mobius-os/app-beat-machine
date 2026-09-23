@@ -54,6 +54,30 @@ test('manifest and storage bridge agree on the offline contract', async () => {
   }
 })
 
+test('initial load installs conflict recovery before reading cached state', async () => {
+  const calls = []
+  let listener = null
+  globalThis.window = {
+    mobius: {
+      storage: {
+        onConflict(cb) { calls.push('onConflict'); listener = cb; return () => {} },
+        getWithVersion: async () => ({ value: null, version: null }),
+        durableWrite: async () => ({ durability: 'synced' }),
+        get: async (path) => { calls.push(`get:${path}`); return null },
+      },
+    },
+  }
+  try {
+    const { loadBeatState } = await bundle()
+    await loadBeatState('beat-machine', 'tok')
+    assert.equal(typeof listener, 'function')
+    assert.equal(calls[0], 'onConflict')
+    assert.deepEqual(calls.slice(1), ['get:state.json', 'get:settings.json'])
+  } finally {
+    delete globalThis.window
+  }
+})
+
 test('state updates preserve unrelated changes loaded from another device', async () => {
   const { mergeBeatStateUpdate } = await bundle()
   const latest = {
@@ -121,14 +145,119 @@ test('state writes retry a CAS conflict and merge against the winning device', a
       ],
     })
     assert.equal(writes.length, 2)
-    assert.deepEqual(writes.map((write) => write.options), [
+    assert.deepEqual(writes.map((write) => ({ ifMatch: write.options.ifMatch })), [
       { ifMatch: 'v1' },
       { ifMatch: 'v2' },
     ])
+    assert.deepEqual(writes[1].options.conflictContext, {
+      kind: 'beat-state-intent',
+      gridChanges: [[1, 2]],
+      customPadIndices: [9],
+    })
     const landed = writes[1].value
     assert.equal(landed.grid[0][0], true)
     assert.equal(landed.grid[1][2], true)
     assert.deepEqual(landed.customPads.map((pad) => pad.idx), [8, 9])
+  } finally {
+    delete globalThis.window
+  }
+})
+
+test('an offline pattern intent replays over a disjoint remote pattern edit', async () => {
+  const emptyGrid = () => Array.from({ length: 16 }, () => new Array(32).fill(false))
+  const baseline = { grid: emptyGrid(), customPads: [] }
+  const remote = { grid: emptyGrid(), customPads: [] }
+  remote.grid[0][0] = true
+  let listener
+  const writes = []
+  let readCount = 0
+  globalThis.window = {
+    mobius: {
+      online: false,
+      storage: {
+        onConflict(cb) { listener = cb; return () => { listener = null } },
+        async getWithVersion() {
+          readCount += 1
+          return readCount === 1
+            ? { value: baseline, version: 'baseline-v1' }
+            : { value: remote, version: 'remote-v2' }
+        },
+        async durableWrite(path, value, options) {
+          writes.push({ path, value, options })
+          return { durability: writes.length === 1 ? 'queued' : 'synced' }
+        },
+      },
+    },
+  }
+  try {
+    const { updateBeatState } = await bundle()
+    await updateBeatState('beat-machine', 'tok', {
+      grid: (grid) => grid.map((row, rowIndex) => {
+        const next = [...row]
+        if (rowIndex === 1) next[2] = true
+        return next
+      }),
+    })
+    const queued = writes[0]
+    assert.deepEqual(queued.options.conflictContext.gridChanges, [[1, 2]])
+
+    assert.equal(await listener({
+      path: 'state.json',
+      conflictContext: queued.options.conflictContext,
+      refusedValue: queued.value,
+    }), true)
+    const recovered = writes[1].value
+    assert.equal(recovered.grid[0][0], true)
+    assert.equal(recovered.grid[1][2], true)
+    assert.equal(writes[1].options.ifMatch, 'remote-v2')
+  } finally {
+    delete globalThis.window
+  }
+})
+
+test('an ordered pattern-intent batch preserves multiple edits and a reversal', async () => {
+  const emptyGrid = () => Array.from({ length: 16 }, () => new Array(32).fill(false))
+  const remote = { grid: emptyGrid(), customPads: [] }
+  remote.grid[1][1] = true
+  const refused = { grid: emptyGrid(), customPads: [] }
+  refused.grid[2][2] = true
+  const context = {
+    kind: 'mobius-conflict-context-batch',
+    version: 1,
+    items: [
+      { kind: 'beat-state-intent', gridChanges: [[0, 0]], customPadIndices: [] },
+      { kind: 'beat-state-intent', gridChanges: [[2, 2]], customPadIndices: [] },
+      { kind: 'beat-state-intent', gridChanges: [[0, 0]], customPadIndices: [] },
+    ],
+  }
+  let listener
+  const writes = []
+  globalThis.window = {
+    mobius: {
+      online: true,
+      storage: {
+        onConflict(cb) { listener = cb; return () => {} },
+        async getWithVersion() { return { value: remote, version: 'remote-v2' } },
+        async durableWrite(path, value, options) {
+          writes.push({ path, value, options })
+          return { durability: 'synced' }
+        },
+      },
+    },
+  }
+  try {
+    const { updateBeatState } = await bundle()
+    await updateBeatState('beat-machine', 'tok', {})
+    writes.length = 0
+    assert.equal(await listener({
+      path: 'state.json',
+      conflictContext: context,
+      refusedValue: refused,
+    }), true)
+    assert.equal(writes[0].value.grid[0][0], false)
+    assert.equal(writes[0].value.grid[1][1], true)
+    assert.equal(writes[0].value.grid[2][2], true)
+    assert.deepEqual(writes[0].options.conflictContext, context)
   } finally {
     delete globalThis.window
   }
