@@ -23,6 +23,7 @@ test('manifest and storage bridge agree on the offline contract', async () => {
   const oldFetch = globalThis.fetch
   globalThis.window = {
     mobius: {
+      runtimeFeatures: { authoritativeVersionedReads: true },
       storage: {
         get: async (path) => {
           calls.push(['get', path])
@@ -59,6 +60,7 @@ test('initial load installs conflict recovery before reading cached state', asyn
   let listener = null
   globalThis.window = {
     mobius: {
+      runtimeFeatures: { authoritativeVersionedReads: true },
       storage: {
         onConflict(cb) { calls.push('onConflict'); listener = cb; return () => {} },
         getWithVersion: async () => ({ value: null, version: null }),
@@ -73,6 +75,28 @@ test('initial load installs conflict recovery before reading cached state', asyn
     assert.equal(typeof listener, 'function')
     assert.equal(calls[0], 'onConflict')
     assert.deepEqual(calls.slice(1), ['get:state.json', 'get:settings.json'])
+  } finally {
+    delete globalThis.window
+  }
+})
+
+test('older runtimes keep Beat Machine on the non-CAS compatibility path', async () => {
+  const calls = []
+  globalThis.window = {
+    mobius: {
+      storage: {
+        onConflict() { throw new Error('legacy runtime must not install recovery') },
+        async get() { calls.push('get'); return null },
+        async set() { calls.push('set'); return { queued: true } },
+        async getWithVersion() { throw new Error('legacy runtime must not use versioned reads') },
+        async durableWrite() { throw new Error('legacy runtime must not use conditional writes') },
+      },
+    },
+  }
+  try {
+    const { updateBeatState } = await bundle()
+    await updateBeatState('beat-machine', 'tok', {})
+    assert.deepEqual(calls, ['get', 'set'])
   } finally {
     delete globalThis.window
   }
@@ -116,6 +140,7 @@ test('state writes retry a CAS conflict and merge against the winning device', a
   const writes = []
   globalThis.window = {
     mobius: {
+      runtimeFeatures: { authoritativeVersionedReads: true },
       online: true,
       storage: {
         getWithVersion: async () => reads.shift(),
@@ -173,6 +198,7 @@ test('an offline pattern intent replays over a disjoint remote pattern edit', as
   let readCount = 0
   globalThis.window = {
     mobius: {
+      runtimeFeatures: { authoritativeVersionedReads: true },
       online: false,
       storage: {
         onConflict(cb) { listener = cb; return () => { listener = null } },
@@ -223,6 +249,7 @@ test('queued conflict recovery stays pending until its replacement is synced', a
   let listener
   globalThis.window = {
     mobius: {
+      runtimeFeatures: { authoritativeVersionedReads: true },
       storage: {
         onConflict(cb) { listener = cb; return () => {} },
         async getWithVersion() { return { value: remote, version: 'remote-v2' } },
@@ -238,6 +265,54 @@ test('queued conflict recovery stays pending until its replacement is synced', a
       conflictContext: { kind: 'beat-state-intent', gridChanges: [[1, 2]], customPadIndices: [] },
       refusedValue: refused,
     }), false)
+  } finally {
+    delete globalThis.window
+  }
+})
+
+test('replayed Beat recovery merges from the authoritative server while a replacement is queued', async () => {
+  const emptyGrid = () => Array.from({ length: 16 }, () => new Array(32).fill(false))
+  const firstRemote = { grid: emptyGrid(), customPads: [] }
+  firstRemote.grid[0][0] = true
+  const secondRemote = { grid: emptyGrid(), customPads: [] }
+  secondRemote.grid[0][0] = true
+  secondRemote.grid[3][4] = true
+  const refused = { grid: emptyGrid(), customPads: [] }
+  refused.grid[1][2] = true
+  const reads = [
+    { value: firstRemote, version: 'remote-v2' },
+    { value: secondRemote, version: 'remote-v3' },
+  ]
+  let listener
+  const writes = []
+  globalThis.window = {
+    mobius: {
+      runtimeFeatures: { authoritativeVersionedReads: true },
+      storage: {
+        onConflict(cb) { listener = cb; return () => {} },
+        async get(path) { return path === 'state.json' ? firstRemote : null },
+        async getWithVersion() { return reads.shift() },
+        async durableWrite(path, value, options) {
+          writes.push({ path, value, options })
+          return { durability: writes.length === 1 ? 'queued' : 'synced' }
+        },
+      },
+    },
+  }
+  try {
+    const { loadBeatState } = await bundle()
+    await loadBeatState('beat-machine', 'tok')
+    const conflict = {
+      path: 'state.json',
+      conflictContext: { kind: 'beat-state-intent', gridChanges: [[1, 2]], customPadIndices: [] },
+      refusedValue: refused,
+    }
+    assert.equal(await listener(conflict), false)
+    assert.equal(await listener(conflict), true)
+    assert.equal(writes[1].value.grid[0][0], true)
+    assert.equal(writes[1].value.grid[1][2], true)
+    assert.equal(writes[1].value.grid[3][4], true, 'the disjoint remote edit survives replay')
+    assert.equal(writes[1].options.ifMatch, 'remote-v3')
   } finally {
     delete globalThis.window
   }
@@ -262,6 +337,7 @@ test('an ordered pattern-intent batch preserves multiple edits and a reversal', 
   const writes = []
   globalThis.window = {
     mobius: {
+      runtimeFeatures: { authoritativeVersionedReads: true },
       online: true,
       storage: {
         onConflict(cb) { listener = cb; return () => {} },
@@ -357,6 +433,7 @@ test('loadBeatState rejects transient storage failures instead of returning empt
 test('loadBeatState propagates runtime bridge failures', async () => {
   globalThis.window = {
     mobius: {
+      runtimeFeatures: { authoritativeVersionedReads: true },
       storage: {
         get: async () => {
           throw new Error('offline mirror unavailable')

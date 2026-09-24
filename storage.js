@@ -120,7 +120,8 @@ function ensureBeatConflictRecovery(bridge) {
   try { detachRecovery?.() } catch {}
   recoveryStorage = bridge
   detachRecovery = null
-  if (!bridge?.onConflict || !bridge?.getWithVersion || !bridge?.durableWrite) return
+  if (window.mobius?.runtimeFeatures?.authoritativeVersionedReads !== true
+      || !bridge?.onConflict || !bridge?.getWithVersion || !bridge?.durableWrite) return
   detachRecovery = bridge.onConflict(async (conflict) => {
     const context = conflict?.conflictContext
     const intents = conflictContexts(context)
@@ -129,6 +130,7 @@ function ensureBeatConflictRecovery(bridge) {
     const refused = sanitizeState(conflict.refusedValue)
     for (let attempt = 0; attempt < MAX_STATE_WRITE_ATTEMPTS; attempt += 1) {
       const current = await bridge.getWithVersion(SAVE_PATH)
+      if (current?.offline === true) return false
       const latest = sanitizeState(current?.value)
       const merged = intents.reduce(
         (state, intent) => applyBeatConflictIntent(state, refused, intent),
@@ -165,6 +167,7 @@ export async function updateBeatState(appId, token, update = {}) {
   const bridge = storageBridge()
   ensureBeatConflictRecovery(bridge)
   const canCas = bridge &&
+    window.mobius?.runtimeFeatures?.authoritativeVersionedReads === true &&
     typeof bridge.getWithVersion === 'function' &&
     typeof bridge.durableWrite === 'function'
 
