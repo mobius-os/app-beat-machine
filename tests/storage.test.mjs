@@ -215,6 +215,34 @@ test('an offline pattern intent replays over a disjoint remote pattern edit', as
   }
 })
 
+test('queued conflict recovery stays pending until its replacement is synced', async () => {
+  const emptyGrid = () => Array.from({ length: 16 }, () => new Array(32).fill(false))
+  const remote = { grid: emptyGrid(), customPads: [] }
+  const refused = { grid: emptyGrid(), customPads: [] }
+  refused.grid[1][2] = true
+  let listener
+  globalThis.window = {
+    mobius: {
+      storage: {
+        onConflict(cb) { listener = cb; return () => {} },
+        async getWithVersion() { return { value: remote, version: 'remote-v2' } },
+        async durableWrite() { return { durability: 'queued' } },
+      },
+    },
+  }
+  try {
+    const { updateBeatState } = await bundle()
+    await updateBeatState('beat-machine', 'tok', {})
+    assert.equal(await listener({
+      path: 'state.json',
+      conflictContext: { kind: 'beat-state-intent', gridChanges: [[1, 2]], customPadIndices: [] },
+      refusedValue: refused,
+    }), false)
+  } finally {
+    delete globalThis.window
+  }
+})
+
 test('an ordered pattern-intent batch preserves multiple edits and a reversal', async () => {
   const emptyGrid = () => Array.from({ length: 16 }, () => new Array(32).fill(false))
   const remote = { grid: emptyGrid(), customPads: [] }

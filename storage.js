@@ -136,7 +136,7 @@ function ensureBeatConflictRecovery(bridge) {
       )
       const updatedAt = new Date().toISOString()
       try {
-        await bridge.durableWrite(
+        const result = await bridge.durableWrite(
           SAVE_PATH,
           stateDocument(latest, merged, updatedAt),
           {
@@ -144,7 +144,9 @@ function ensureBeatConflictRecovery(bridge) {
             conflictContext: context,
           },
         )
-        return true
+        // A queued replacement can still be refused later. Leave the original
+        // conflict pending until this recovery write is accepted by the server.
+        return result?.durability === 'synced'
       } catch (error) {
         if (error?.code !== 'conflict') throw error
       }
