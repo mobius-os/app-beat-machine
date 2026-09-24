@@ -5,6 +5,12 @@ export const SAVE_PATH = 'state.json'
 export const SETTINGS_PATH = 'settings.json'
 const SAVE_VERSION = 2
 const MAX_STATE_WRITE_ATTEMPTS = 4
+const conflictContexts = (context) => (
+  context?.kind === 'mobius-conflict-context-batch'
+  && context?.version === 1 && Array.isArray(context.items)
+    ? context.items.flatMap(conflictContexts)
+    : [context]
+)
 
 function storageBridge() {
   return (typeof window !== 'undefined' && window.mobius && window.mobius.storage) || null
@@ -16,6 +22,10 @@ function headers(token) {
 
 export async function loadBeatState(appId, token) {
   const bridge = storageBridge()
+  // Conflict outcomes are durable and can be waiting before this app process
+  // mounts. Install recovery during the ordinary load path so a cold reopen
+  // can receive/reconcile them without requiring the user to edit first.
+  ensureBeatConflictRecovery(bridge)
   if (bridge && typeof bridge.get === 'function') {
     const [rawState, rawSettings] = await Promise.all([
       bridge.get(SAVE_PATH),
@@ -73,24 +83,100 @@ function stateDocument(latest, merged, updatedAt) {
   }
 }
 
+export function beatConflictContext(latest, merged) {
+  const gridChanges = []
+  for (let row = 0; row < merged.grid.length; row += 1) {
+    for (let column = 0; column < merged.grid[row].length; column += 1) {
+      if (merged.grid[row][column] !== latest.grid[row]?.[column]) gridChanges.push([row, column])
+    }
+  }
+  const beforePads = new Map((latest.customPads || []).map((pad) => [pad.idx, pad]))
+  const afterPads = new Map((merged.customPads || []).map((pad) => [pad.idx, pad]))
+  const customPadIndices = [...new Set([...beforePads.keys(), ...afterPads.keys()])]
+    .filter((idx) => JSON.stringify(beforePads.get(idx)) !== JSON.stringify(afterPads.get(idx)))
+  return { kind: 'beat-state-intent', gridChanges, customPadIndices }
+}
+
+export function applyBeatConflictIntent(latest, refused, context) {
+  const grid = latest.grid.map((row) => [...row])
+  for (const [row, column] of context?.gridChanges || []) {
+    if (grid[row] && refused.grid?.[row] && column in refused.grid[row]) {
+      grid[row][column] = !!refused.grid[row][column]
+    }
+  }
+  const pads = new Map((latest.customPads || []).map((pad) => [pad.idx, pad]))
+  const refusedPads = new Map((refused.customPads || []).map((pad) => [pad.idx, pad]))
+  for (const idx of context?.customPadIndices || []) {
+    if (refusedPads.has(idx)) pads.set(idx, refusedPads.get(idx))
+    else pads.delete(idx)
+  }
+  return { grid, customPads: [...pads.values()].sort((a, b) => a.idx - b.idx) }
+}
+
+let recoveryStorage = null
+let detachRecovery = null
+function ensureBeatConflictRecovery(bridge) {
+  if (bridge === recoveryStorage) return
+  try { detachRecovery?.() } catch {}
+  recoveryStorage = bridge
+  detachRecovery = null
+  if (window.mobius?.runtimeFeatures?.authoritativeVersionedReads !== true
+      || !bridge?.onConflict || !bridge?.getWithVersion || !bridge?.durableWrite) return
+  detachRecovery = bridge.onConflict(async (conflict) => {
+    const context = conflict?.conflictContext
+    const intents = conflictContexts(context)
+    if (conflict?.path !== SAVE_PATH || !intents.length
+        || intents.some((intent) => intent?.kind !== 'beat-state-intent')) return false
+    const refused = sanitizeState(conflict.refusedValue)
+    for (let attempt = 0; attempt < MAX_STATE_WRITE_ATTEMPTS; attempt += 1) {
+      const current = await bridge.getWithVersion(SAVE_PATH)
+      if (current?.offline === true) return false
+      const latest = sanitizeState(current?.value)
+      const merged = intents.reduce(
+        (state, intent) => applyBeatConflictIntent(state, refused, intent),
+        latest,
+      )
+      const updatedAt = new Date().toISOString()
+      try {
+        const result = await bridge.durableWrite(
+          SAVE_PATH,
+          stateDocument(latest, merged, updatedAt),
+          {
+            ...(current?.version ? { ifMatch: current.version } : { ifNoneMatch: true }),
+            conflictContext: context,
+          },
+        )
+        // A queued replacement can still be refused later. Leave the original
+        // conflict pending until this recovery write is accepted by the server.
+        return result?.durability === 'synced'
+      } catch (error) {
+        if (error?.code !== 'conflict') throw error
+      }
+    }
+    return false
+  })
+}
+
 // Apply one pattern/recording intent with optimistic concurrency. An ordinary
 // get-then-set still loses a simultaneous writer between those two calls; the
 // versioned read plus conditional durable write closes that window and retries
-// the merge against the winner. Offline and older runtimes keep the queued
-// last-write-wins path so local edits remain usable, but current online runtimes
-// never silently clobber another device's accepted state write.
+// the merge against the winner. Current runtimes retain a compact pattern intent
+// with queued offline writes and replay it over a newer remote document on
+// reconnect. Only older runtimes fall back to queued last-write-wins.
 export async function updateBeatState(appId, token, update = {}) {
   const bridge = storageBridge()
+  ensureBeatConflictRecovery(bridge)
   const canCas = bridge &&
+    window.mobius?.runtimeFeatures?.authoritativeVersionedReads === true &&
     typeof bridge.getWithVersion === 'function' &&
-    typeof bridge.durableWrite === 'function' &&
-    window.mobius?.online !== false
+    typeof bridge.durableWrite === 'function'
 
   if (canCas) {
     for (let attempt = 0; attempt < MAX_STATE_WRITE_ATTEMPTS; attempt += 1) {
       const current = await bridge.getWithVersion(SAVE_PATH)
       const latest = sanitizeState(current?.value)
       const merged = mergeBeatStateUpdate(latest, update)
+      const conflictContext = beatConflictContext(latest, merged)
       const updatedAt = new Date().toISOString()
       try {
         const options = current?.version
@@ -99,7 +185,7 @@ export async function updateBeatState(appId, token, update = {}) {
         await bridge.durableWrite(
           SAVE_PATH,
           stateDocument(latest, merged, updatedAt),
-          options,
+          { ...options, conflictContext },
         )
         return updatedAt
       } catch (err) {
