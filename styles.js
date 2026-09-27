@@ -82,7 +82,7 @@ export const CSS = `
   height: 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: linear-gradient(90deg, var(--bm-slider-color) 0 var(--bm-slider-pct), var(--surface2) var(--bm-slider-pct) 100%);
+  background: linear-gradient(90deg, var(--bm-slider-color) 0 var(--bm-slider-pct), var(--surface-2) var(--bm-slider-pct) 100%);
 }
 .bm-root .bm-slider::-webkit-slider-thumb {
   appearance: none;
@@ -99,7 +99,7 @@ export const CSS = `
   height: 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: linear-gradient(90deg, var(--bm-slider-color) 0 var(--bm-slider-pct), var(--surface2) var(--bm-slider-pct) 100%);
+  background: linear-gradient(90deg, var(--bm-slider-color) 0 var(--bm-slider-pct), var(--surface-2) var(--bm-slider-pct) 100%);
 }
 .bm-root .bm-slider::-moz-range-thumb {
   width: 14px;
@@ -551,7 +551,7 @@ export const S = {
     gap: 6,
     padding: '8px 10px 10px',
     borderTop: '1px solid var(--border)',
-    background: 'var(--surface2)',
+    background: 'var(--surface-2)',
     flexShrink: 0,
   },
   sliderRow: {
