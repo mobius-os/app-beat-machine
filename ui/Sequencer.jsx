@@ -221,7 +221,7 @@ export function Sequencer({
                               ? 'color-mix(in srgb, var(--text) 12%, var(--surface))'
                               : beatIdx % 8 < 4
                                 ? 'var(--surface)'
-                                : 'var(--surface2)',
+                                : 'var(--surface-2)',
                           borderColor: cur ? 'var(--accent)' : on ? `${pad.color}66` : 'var(--border)',
                           opacity: hasSound ? 1 : 0.12,
                           cursor: hasSound ? 'pointer' : 'default',
