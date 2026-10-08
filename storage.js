@@ -83,11 +83,16 @@ function stateDocument(latest, merged, updatedAt) {
   }
 }
 
-export function beatConflictContext(latest, merged) {
+// `setCells` are the [row, column] cells the update set explicitly. They join
+// the intent even when their saved value did not change: a cell tapped on and
+// off again before saving still means "off" over a remote "on".
+export function beatConflictContext(latest, merged, setCells = []) {
   const gridChanges = []
+  const explicit = new Set(setCells.map(([row, column]) => `${row}:${column}`))
   for (let row = 0; row < merged.grid.length; row += 1) {
     for (let column = 0; column < merged.grid[row].length; column += 1) {
-      if (merged.grid[row][column] !== latest.grid[row]?.[column]) gridChanges.push([row, column])
+      if (merged.grid[row][column] !== latest.grid[row]?.[column]
+          || explicit.has(`${row}:${column}`)) gridChanges.push([row, column])
     }
   }
   const beforePads = new Map((latest.customPads || []).map((pad) => [pad.idx, pad]))
@@ -176,7 +181,7 @@ export async function updateBeatState(appId, token, update = {}) {
       const current = await bridge.getWithVersion(SAVE_PATH)
       const latest = sanitizeState(current?.value)
       const merged = mergeBeatStateUpdate(latest, update)
-      const conflictContext = beatConflictContext(latest, merged)
+      const conflictContext = beatConflictContext(latest, merged, update.gridCells)
       const updatedAt = new Date().toISOString()
       try {
         const options = current?.version
@@ -248,6 +253,7 @@ export async function updateBeatState(appId, token, update = {}) {
 // State writes may start from a device whose in-memory copy is older than the
 // server. Functional fields apply the local intent to the freshly loaded
 // document instead of replacing unrelated remote pattern rows or recordings.
+// An update's `gridCells` only shapes its conflict intent (beatConflictContext).
 export function mergeBeatStateUpdate(latest, update = {}) {
   const resolve = (value, current) => (
     typeof value === 'function' ? value(current) : (value ?? current)

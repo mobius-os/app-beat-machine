@@ -451,3 +451,57 @@ test('loadBeatState propagates runtime bridge failures', async () => {
     delete globalThis.window
   }
 })
+
+test('a cell tapped on and off before saving still wins over a remote "on" when replayed', async () => {
+  const emptyGrid = () => Array.from({ length: 16 }, () => new Array(32).fill(false))
+  const baseline = { grid: emptyGrid(), customPads: [] }
+  const remote = { grid: emptyGrid(), customPads: [] }
+  remote.grid[1][2] = true
+  let listener
+  const writes = []
+  let readCount = 0
+  globalThis.window = {
+    mobius: {
+      runtimeFeatures: { authoritativeVersionedReads: true },
+      online: false,
+      storage: {
+        onConflict(cb) { listener = cb; return () => { listener = null } },
+        async getWithVersion() {
+          readCount += 1
+          return readCount === 1
+            ? { value: baseline, version: 'baseline-v1' }
+            : { value: remote, version: 'remote-v2' }
+        },
+        async durableWrite(path, value, options) {
+          writes.push({ path, value, options })
+          return { durability: writes.length === 1 ? 'queued' : 'synced' }
+        },
+      },
+    },
+  }
+  try {
+    const { updateBeatState } = await bundle()
+    // The batched save of an on-then-off tap: no net change to the cell.
+    await updateBeatState('beat-machine', 'tok', {
+      grid: (grid) => grid.map((row) => [...row]),
+      gridCells: [[1, 2]],
+    })
+    const queued = writes[0]
+    assert.deepEqual(queued.options.conflictContext.gridChanges, [[1, 2]])
+    assert.equal('gridCells' in queued.value, false, 'the cell list is not saved into the file')
+
+    assert.equal(await listener({
+      path: 'state.json',
+      conflictContext: queued.options.conflictContext,
+      refusedValue: queued.value,
+    }), true)
+    assert.equal(writes[1].value.grid[1][2], false, 'the local "off" replays over the remote "on"')
+  } finally {
+    delete globalThis.window
+  }
+})
+
+test('batched grid saves pass the tapped cells into the conflict intent', () => {
+  const app = readFileSync(join(root, '..', 'index.jsx'), 'utf8')
+  assert.match(app, /gridCells: taps\.map\(\(\{ padIdx, beatIdx \}\) => \[padIdx, beatIdx\]\)/)
+})

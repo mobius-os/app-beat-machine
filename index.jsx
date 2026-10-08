@@ -88,7 +88,8 @@ export default function BeatMachine({ appId, token }) {
   const pendingStateWritesRef = useRef(0)
   // Grid taps are applied on screen at once and saved together after a short
   // pause (GRID_SAVE_DELAY_MS); every state save carries the pending taps.
-  const pendingGridEditsRef = useRef([])
+  // Keyed by "pad:beat", the last tap on a cell wins.
+  const pendingGridTapsRef = useRef(new Map())
   const gridSaveTimerRef = useRef(null)
   const settingsRevisionRef = useRef(0)
   const settingsDirtyRef = useRef(false)
@@ -199,11 +200,11 @@ export default function BeatMachine({ appId, token }) {
 
   const persistState = useCallback((overrides = {}) => {
     pendingStateWritesRef.current += 1
-    const gridEdits = pendingGridEditsRef.current
-    if (gridEdits.length) {
-      // Release the hold queueGridEdit took, and apply the taps before this
+    const taps = [...pendingGridTapsRef.current.values()]
+    if (taps.length) {
+      // Release the hold queueGridTap took, and apply the taps before this
       // save's own grid change so their order is kept.
-      pendingGridEditsRef.current = []
+      pendingGridTapsRef.current = new Map()
       window.clearTimeout(gridSaveTimerRef.current)
       gridSaveTimerRef.current = null
       pendingStateWritesRef.current -= 1
@@ -211,10 +212,16 @@ export default function BeatMachine({ appId, token }) {
       overrides = {
         ...overrides,
         grid: (latest) => {
-          const tapped = gridEdits.reduce((grid, edit) => edit(grid), latest)
+          const tapped = latest.map((row) => [...row])
+          for (const { padIdx, beatIdx, on } of taps) {
+            if (tapped[padIdx]) tapped[padIdx][beatIdx] = on
+          }
           if (ownGrid === undefined) return tapped
           return typeof ownGrid === 'function' ? ownGrid(tapped) : ownGrid
         },
+        // Tapped cells stay in the conflict intent even when a tap was undone
+        // before saving, so the undo still wins over a remote edit.
+        gridCells: taps.map(({ padIdx, beatIdx }) => [padIdx, beatIdx]),
       }
     }
     const run = async () => {
@@ -231,16 +238,16 @@ export default function BeatMachine({ appId, token }) {
       .finally(() => { pendingStateWritesRef.current -= 1 })
   }, [appId, token, showToast])
 
-  const queueGridEdit = useCallback((edit) => {
+  const queueGridTap = useCallback((padIdx, beatIdx, on) => {
     // Holds refreshFromServer off until the taps are saved.
-    if (!pendingGridEditsRef.current.length) pendingStateWritesRef.current += 1
-    pendingGridEditsRef.current.push(edit)
+    if (!pendingGridTapsRef.current.size) pendingStateWritesRef.current += 1
+    pendingGridTapsRef.current.set(`${padIdx}:${beatIdx}`, { padIdx, beatIdx, on })
     window.clearTimeout(gridSaveTimerRef.current)
     gridSaveTimerRef.current = window.setTimeout(() => persistState(), GRID_SAVE_DELAY_MS)
   }, [persistState])
 
   useEffect(() => {
-    const flush = () => { if (pendingGridEditsRef.current.length) persistState() }
+    const flush = () => { if (pendingGridTapsRef.current.size) persistState() }
     const onHidden = () => { if (document.visibilityState === 'hidden') flush() }
     window.addEventListener('pagehide', flush)
     document.addEventListener('visibilitychange', onHidden)
@@ -626,16 +633,12 @@ export default function BeatMachine({ appId, token }) {
     const next = gridRef.current.map((row) => [...row])
     next[padIdx][beatIdx] = turningOn
     setGrid(next)
-    queueGridEdit((latest) => latest.map((row, idx) => {
-      const updated = [...row]
-      if (idx === padIdx) updated[beatIdx] = turningOn
-      return updated
-    }))
+    queueGridTap(padIdx, beatIdx, turningOn)
     if (turningOn && !firstStepRef.current) {
       firstStepRef.current = true
       signal('first_step_placed', { kind: padIdx < CUSTOM_START ? 'kit' : 'sample' })
     }
-  }, [initPresets, queueGridEdit, setGrid])
+  }, [initPresets, queueGridTap, setGrid])
 
   const clearGrid = useCallback(() => {
     const next = createEmptyGrid()
