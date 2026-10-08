@@ -210,8 +210,9 @@ export default function BeatMachine({ appId, token }) {
       const ownGrid = overrides.grid
       overrides = {
         ...overrides,
+        gridCells: gridEdits.map((edit) => edit.cell),
         grid: (latest) => {
-          const tapped = gridEdits.reduce((grid, edit) => edit(grid), latest)
+          const tapped = gridEdits.reduce((grid, edit) => edit.apply(grid), latest)
           if (ownGrid === undefined) return tapped
           return typeof ownGrid === 'function' ? ownGrid(tapped) : ownGrid
         },
@@ -231,10 +232,10 @@ export default function BeatMachine({ appId, token }) {
       .finally(() => { pendingStateWritesRef.current -= 1 })
   }, [appId, token, showToast])
 
-  const queueGridEdit = useCallback((edit) => {
+  const queueGridEdit = useCallback((edit, cell) => {
     // Holds refreshFromServer off until the taps are saved.
     if (!pendingGridEditsRef.current.length) pendingStateWritesRef.current += 1
-    pendingGridEditsRef.current.push(edit)
+    pendingGridEditsRef.current.push({ apply: edit, cell })
     window.clearTimeout(gridSaveTimerRef.current)
     gridSaveTimerRef.current = window.setTimeout(() => persistState(), GRID_SAVE_DELAY_MS)
   }, [persistState])
@@ -630,7 +631,7 @@ export default function BeatMachine({ appId, token }) {
       const updated = [...row]
       if (idx === padIdx) updated[beatIdx] = turningOn
       return updated
-    }))
+    }), [padIdx, beatIdx])
     if (turningOn && !firstStepRef.current) {
       firstStepRef.current = true
       signal('first_step_placed', { kind: padIdx < CUSTOM_START ? 'kit' : 'sample' })
