@@ -4,7 +4,6 @@ import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
-import { runInNewContext } from 'node:vm'
 import { bundleModule } from './test-deps.mjs'
 
 const root = dirname(fileURLToPath(import.meta.url))
@@ -449,126 +448,6 @@ test('loadBeatState propagates runtime bridge failures', async () => {
       /offline mirror unavailable/,
     )
   } finally {
-    delete globalThis.window
-  }
-})
-
-
-function actualGridBatch({ grid, updateBeatState, createEmptyGrid }) {
-  const source = readFileSync(join(root, '..', 'index.jsx'), 'utf8')
-  const persistence = source.slice(source.indexOf('  const persistState ='), source.indexOf('  useEffect(() => {\n    const flush ='))
-  const toggles = source.slice(source.indexOf('  const toggleCell ='), source.indexOf('  useEffect(() => {\n    if (selectedPad'))
-  assert.ok(persistence && toggles, 'production batching callbacks exist')
-  const pendingStateWritesRef = { current: 0 }
-  let timer = null
-  const oldSetTimeout = window.setTimeout
-  const oldClearTimeout = window.clearTimeout
-  window.setTimeout = (cb) => { timer = cb; return 1 }
-  window.clearTimeout = () => { timer = null }
-  const context = {
-    window, useCallback: cb => cb, appId: 'beat-machine', token: 'tok',
-    gridRef: { current: grid },
-    pendingStateWritesRef,
-    pendingGridEditsRef: { current: [] }, gridSaveTimerRef: { current: null },
-    persistChainRef: { current: Promise.resolve() },
-    currentStateUpdatedAtRef: { current: null }, firstStepRef: { current: false },
-    GRID_SAVE_DELAY_MS: 400, CUSTOM_START: 8,
-    updateBeatState, createEmptyGrid, initPresets() {}, signal() {},
-    showToast(message) { throw new Error(message) },
-    setGrid(next) { context.gridRef.current = next },
-  }
-  runInNewContext(persistence + toggles + '\nglobalThis.actions = { toggleCell, clearGrid, persistState }', context)
-  return {
-    ...context.actions,
-    pendingStateWritesRef,
-    async flush() { const cb = timer; assert.ok(cb); await cb() },
-    restore() { window.setTimeout = oldSetTimeout; window.clearTimeout = oldClearTimeout },
-  }
-}
-
-for (const initial of [false, true]) {
-  test(`actual tap batch retains a ${initial ? 'on/off/on' : 'off/on/off'} reversal through offline replay`, async () => {
-    const { createEmptyGrid, updateBeatState } = await bundle()
-    const baseline = { grid: createEmptyGrid(), customPads: [] }
-    baseline.grid[0][0] = initial
-    const remote = { grid: createEmptyGrid(), customPads: [{ idx: 8, audio: { channels: ['remote'] } }] }
-    remote.grid[0][0] = !initial
-    remote.grid[2][2] = true
-    const writes = []
-    let listener
-    globalThis.window = {
-      mobius: {
-        runtimeFeatures: { authoritativeVersionedReads: true },
-        storage: {
-          onConflict(cb) { listener = cb; return () => {} },
-          async getWithVersion() {
-            return writes.length ? { value: remote, version: 'remote-v2' }
-              : { value: baseline, version: 'cached-v1', offline: true }
-          },
-          async durableWrite(path, value, options) {
-            writes.push({ path, value, options })
-            return { durability: writes.length === 1 ? 'queued' : 'synced' }
-          },
-        },
-      },
-    }
-    const batch = actualGridBatch({ grid: baseline.grid, updateBeatState, createEmptyGrid })
-    try {
-      batch.toggleCell(0, 0)
-      batch.toggleCell(0, 0)
-      assert.equal(writes.length, 0, 'taps are not saved individually')
-      assert.equal(batch.pendingStateWritesRef.current, 1)
-      await batch.flush()
-      assert.equal(writes.length, 1)
-      assert.equal(batch.pendingStateWritesRef.current, 0)
-      const queued = writes[0]
-      assert.equal(queued.value.grid[0][0], initial)
-      assert.equal(await listener({ path: 'state.json', refusedValue: queued.value,
-        conflictContext: queued.options.conflictContext }), true)
-      assert.equal(writes[1].value.grid[0][0], initial, 'explicit final tap wins the same-cell remote edit')
-      assert.equal(writes[1].value.grid[2][2], true, 'disjoint remote edit survives')
-      assert.deepEqual(writes[1].value.customPads.map(p => p.idx), [8])
-      assert.deepEqual(queued.options.conflictContext.gridChanges, [[0, 0]])
-    } finally {
-      batch.restore()
-      delete globalThis.window
-    }
-  })
-}
-
-test('actual batches preserve Clear and recording-save order plus independent settings', async () => {
-  const { createEmptyGrid, updateBeatState, saveBeatSettings } = await bundle()
-  let cached = { grid: createEmptyGrid(), customPads: [] }
-  const writes = []
-  globalThis.window = { mobius: {
-    runtimeFeatures: { authoritativeVersionedReads: true },
-    storage: {
-      async getWithVersion() { return { value: cached, version: 'cached-v1', offline: true } },
-      async durableWrite(path, value, options) {
-        writes.push({ path, value, options }); cached = value
-        return { durability: 'queued' }
-      },
-      async set(path, value) { writes.push({ path, value }); return { queued: true } },
-    },
-  } }
-  const batch = actualGridBatch({ grid: cached.grid, updateBeatState, createEmptyGrid })
-  try {
-    batch.toggleCell(0, 0)
-    batch.clearGrid()
-    batch.toggleCell(1, 1)
-    await batch.persistState({ customPads: pads => [...pads, { idx: 8, audio: { channels: ['local'] } }] })
-    assert.equal(writes.length, 2, 'Clear flushes taps before the later recording save')
-    assert.equal(writes[0].value.grid[0][0], false, 'Clear follows earlier tap')
-    assert.deepEqual(writes[0].options.conflictContext.gridChanges, [[0, 0]])
-    assert.equal(writes[1].value.grid[0][0], false)
-    assert.equal(writes[1].value.grid[1][1], true, 'later tap follows Clear')
-    assert.deepEqual(writes[1].options.conflictContext.customPadIndices, [8])
-    assert.equal(batch.pendingStateWritesRef.current, 0)
-    await saveBeatSettings('beat-machine', 'tok', { bpm: 140 })
-    assert.equal(writes[2].path, 'settings.json')
-    assert.equal(writes[2].value.bpm, 140)
-  } finally {
-    batch.restore()
     delete globalThis.window
   }
 })

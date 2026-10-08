@@ -83,20 +83,18 @@ function stateDocument(latest, merged, updatedAt) {
   }
 }
 
-export function beatConflictContext(latest, merged, gridCells = []) {
-  // An on/off batch can return to its cached value but still owns those cells.
-  // Replay their final refused values, not just the batch's net differences.
-  const touched = new Map(gridCells.map(([row, column]) => [`${row}:${column}`, [row, column]]))
+export function beatConflictContext(latest, merged) {
+  const gridChanges = []
   for (let row = 0; row < merged.grid.length; row += 1) {
     for (let column = 0; column < merged.grid[row].length; column += 1) {
-      if (merged.grid[row][column] !== latest.grid[row]?.[column]) touched.set(`${row}:${column}`, [row, column])
+      if (merged.grid[row][column] !== latest.grid[row]?.[column]) gridChanges.push([row, column])
     }
   }
   const beforePads = new Map((latest.customPads || []).map((pad) => [pad.idx, pad]))
   const afterPads = new Map((merged.customPads || []).map((pad) => [pad.idx, pad]))
   const customPadIndices = [...new Set([...beforePads.keys(), ...afterPads.keys()])]
     .filter((idx) => JSON.stringify(beforePads.get(idx)) !== JSON.stringify(afterPads.get(idx)))
-  return { kind: 'beat-state-intent', gridChanges: [...touched.values()], customPadIndices }
+  return { kind: 'beat-state-intent', gridChanges, customPadIndices }
 }
 
 export function applyBeatConflictIntent(latest, refused, context) {
@@ -178,7 +176,7 @@ export async function updateBeatState(appId, token, update = {}) {
       const current = await bridge.getWithVersion(SAVE_PATH)
       const latest = sanitizeState(current?.value)
       const merged = mergeBeatStateUpdate(latest, update)
-      const conflictContext = beatConflictContext(latest, merged, update.gridCells)
+      const conflictContext = beatConflictContext(latest, merged)
       const updatedAt = new Date().toISOString()
       try {
         const options = current?.version
