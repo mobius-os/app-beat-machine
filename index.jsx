@@ -28,6 +28,7 @@ import { PadBanks } from './ui/PadBanks.jsx'
 import { Sequencer } from './ui/Sequencer.jsx'
 
 const SAVE_DEBOUNCE_MS = 800
+const GRID_SAVE_DELAY_MS = 400
 const LOOKAHEAD_MS = 25
 const SCHEDULE_AHEAD_SECONDS = 0.1
 const PAD_HOLD_MS = 520
@@ -85,6 +86,10 @@ export default function BeatMachine({ appId, token }) {
   const saveTimerRef = useRef(null)
   const persistChainRef = useRef(Promise.resolve())
   const pendingStateWritesRef = useRef(0)
+  // Grid taps show at once and are saved together after GRID_SAVE_DELAY_MS;
+  // any earlier state save carries them.
+  const pendingGridTapsRef = useRef([])
+  const gridSaveTimerRef = useRef(null)
   const settingsRevisionRef = useRef(0)
   const settingsDirtyRef = useRef(false)
   const readySignalRef = useRef(false)
@@ -193,6 +198,23 @@ export default function BeatMachine({ appId, token }) {
   }, [reverb])
 
   const persistState = useCallback((overrides = {}) => {
+    const taps = pendingGridTapsRef.current
+    if (taps.length) {
+      // Apply the pending taps before this save's own grid change.
+      pendingGridTapsRef.current = []
+      window.clearTimeout(gridSaveTimerRef.current)
+      const ownGrid = overrides.grid
+      overrides = {
+        ...overrides,
+        grid: (latest) => {
+          const tapped = latest.map((row) => [...row])
+          for (const { padIdx, beatIdx, on } of taps) {
+            if (tapped[padIdx]) tapped[padIdx][beatIdx] = on
+          }
+          return typeof ownGrid === 'function' ? ownGrid(tapped) : (ownGrid ?? tapped)
+        },
+      }
+    }
     pendingStateWritesRef.current += 1
     const run = async () => {
       const updatedAt = await updateBeatState(appId, token, overrides)
@@ -207,6 +229,24 @@ export default function BeatMachine({ appId, token }) {
       })
       .finally(() => { pendingStateWritesRef.current -= 1 })
   }, [appId, token, showToast])
+
+  const queueGridTap = useCallback((padIdx, beatIdx, on) => {
+    pendingGridTapsRef.current.push({ padIdx, beatIdx, on })
+    window.clearTimeout(gridSaveTimerRef.current)
+    gridSaveTimerRef.current = window.setTimeout(() => persistState(), GRID_SAVE_DELAY_MS)
+  }, [persistState])
+
+  useEffect(() => {
+    const flush = () => { if (pendingGridTapsRef.current.length) persistState() }
+    const onHidden = () => { if (document.visibilityState === 'hidden') flush() }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onHidden)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onHidden)
+      flush()
+    }
+  }, [persistState])
 
   const persistSettings = useCallback(async () => {
     const revision = settingsRevisionRef.current
@@ -239,6 +279,7 @@ export default function BeatMachine({ appId, token }) {
         recordIntentRef.current !== null ||
         padGestureRef.current !== null ||
         pendingStateWritesRef.current > 0 ||
+        pendingGridTapsRef.current.length > 0 ||
         settingsDirtyRef.current
       ) return
       refreshing = true
@@ -583,18 +624,12 @@ export default function BeatMachine({ appId, token }) {
     const next = gridRef.current.map((row) => [...row])
     next[padIdx][beatIdx] = turningOn
     setGrid(next)
-    persistState({
-      grid: (latest) => latest.map((row, idx) => {
-        const updated = [...row]
-        if (idx === padIdx) updated[beatIdx] = turningOn
-        return updated
-      }),
-    })
+    queueGridTap(padIdx, beatIdx, turningOn)
     if (turningOn && !firstStepRef.current) {
       firstStepRef.current = true
       signal('first_step_placed', { kind: padIdx < CUSTOM_START ? 'kit' : 'sample' })
     }
-  }, [initPresets, persistState, setGrid])
+  }, [initPresets, queueGridTap, setGrid])
 
   const clearGrid = useCallback(() => {
     const next = createEmptyGrid()
