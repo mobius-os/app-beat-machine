@@ -63,6 +63,13 @@ test('responsive layout keeps every loaded row compact above bottom controls', (
   assert.doesNotMatch(styles, /\.bm-root \.bm-sample-waveform\s*\{[\s\S]*display:\s*none/)
 })
 
+test('short landscape viewports scroll instead of collapsing the sequencer', () => {
+  const short = styles.match(/@media \(max-height: 520px\) \{([\s\S]*?)\n\}/)?.[1] || ''
+  assert.match(short, /\.bm-root\s*\{\s*overflow-y:\s*auto\s*!important/)
+  assert.match(short, /\.bm-root \.bm-sequencer\s*\{\s*min-height:\s*184px\s*!important/)
+  assert.match(short, /\.bm-root \.bm-seq-cells\s*\{\s*flex:\s*0 0 32px/)
+})
+
 test('compact sound profile omits edit, delete, and saved-recording chrome', () => {
   assert.doesNotMatch(controls, /Rename sample|Delete sample/)
   assert.doesNotMatch(index, /Recording saved/)

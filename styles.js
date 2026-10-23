@@ -49,6 +49,21 @@ export const CSS = `
 .bm-root .bm-seq-cells > button {
   height: 100% !important;
 }
+/* Short viewports (phone landscape): the one-screen fit above would squeeze
+   the sequencer to zero height. Keep the transport plus ~3.5 full-size rows,
+   and let the root scroll to reach the pads and sound controls. */
+@media (max-height: 520px) {
+  .bm-root {
+    overflow-y: auto !important;
+  }
+  .bm-root .bm-sequencer {
+    min-height: 184px !important;
+  }
+  .bm-root .bm-seq-row-label,
+  .bm-root .bm-seq-cells {
+    flex: 0 0 32px;
+  }
+}
 @media (max-width: 700px) {
   .bm-root .bm-sample-panel {
     gap: 4px !important;
