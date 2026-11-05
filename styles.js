@@ -32,10 +32,14 @@ export const CSS = `
   flex: 0 0 auto !important;
   margin-top: auto;
 }
-.bm-root .bm-seq-labels,
+/* Both row columns fill the viewport when rows fit and grow with them when
+   they don't, so the one vertical viewport scrolls every row; the step
+   grid's own scroller only ever scrolls horizontally. */
 .bm-root .bm-seq-grid {
-  height: 100%;
-  min-height: 0;
+  min-height: 100%;
+}
+.bm-root .bm-seq-viewport > * {
+  min-height: min-content;
 }
 .bm-root .bm-seq-row-label,
 .bm-root .bm-seq-cells {
@@ -48,6 +52,21 @@ export const CSS = `
 }
 .bm-root .bm-seq-cells > button {
   height: 100% !important;
+}
+/* Short viewports (phone landscape): the one-screen fit above would squeeze
+   the sequencer to zero height. Keep the transport plus ~3.5 full-size rows,
+   and let the root scroll to reach the pads and sound controls. */
+@media (max-height: 520px) {
+  .bm-root {
+    overflow-y: auto !important;
+  }
+  .bm-root .bm-sequencer {
+    min-height: 184px !important;
+  }
+  .bm-root .bm-seq-row-label,
+  .bm-root .bm-seq-cells {
+    flex: 0 0 32px;
+  }
 }
 @media (max-width: 700px) {
   .bm-root .bm-sample-panel {
@@ -340,8 +359,6 @@ export const S = {
     flexDirection: 'column',
     gap: 2,
     minWidth: TOTAL_BEATS * 34,
-    height: '100%',
-    minHeight: 0,
   },
   beatNumbers: {
     display: 'grid',
