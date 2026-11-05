@@ -5,6 +5,7 @@ import test from 'node:test'
 const index = readFileSync(new URL('../index.jsx', import.meta.url), 'utf8')
 const styles = readFileSync(new URL('../styles.js', import.meta.url), 'utf8')
 const controls = readFileSync(new URL('../ui/ControlPanel.jsx', import.meta.url), 'utf8')
+const sequencer = readFileSync(new URL('../ui/Sequencer.jsx', import.meta.url), 'utf8')
 const manifest = JSON.parse(readFileSync(new URL('../mobius.json', import.meta.url), 'utf8'))
 
 test('recording uses the trusted Möbius microphone bridge', () => {
@@ -68,6 +69,21 @@ test('short landscape viewports scroll instead of collapsing the sequencer', () 
   assert.match(short, /\.bm-root\s*\{\s*overflow-y:\s*auto\s*!important/)
   assert.match(short, /\.bm-root \.bm-sequencer\s*\{\s*min-height:\s*184px\s*!important/)
   assert.match(short, /\.bm-root \.bm-seq-cells\s*\{\s*flex:\s*0 0 32px/)
+})
+
+test('short viewports let the shared vertical scroller reach the last step row', () => {
+  const short = styles.match(/@media \(max-height: 520px\) \{([\s\S]*?)\n\}/)?.[1] || ''
+  // Fixed-height rows must not be clipped by the horizontal step scroller:
+  // both columns grow with their rows instead of filling the viewport.
+  assert.match(short, /\.bm-root \.bm-seq-viewport\s*\{\s*align-items:\s*flex-start/)
+  assert.match(short, /\.bm-root \.bm-seq-labels,\s*\.bm-root \.bm-seq-grid\s*\{\s*height:\s*auto\s*!important/)
+  // The labels and the horizontal step scroller share that one vertical viewport.
+  const viewport = sequencer.indexOf('bm-seq-viewport')
+  const labels = sequencer.indexOf('bm-seq-labels')
+  const steps = sequencer.indexOf('style={S.seqScrollArea}')
+  const grid = sequencer.indexOf('bm-seq-grid')
+  assert.ok(viewport >= 0 && viewport < labels && labels < steps && steps < grid)
+  assert.match(styles, /seqScrollArea:\s*\{[^}]*overflowX:\s*'auto'/)
 })
 
 test('compact sound profile omits edit, delete, and saved-recording chrome', () => {
