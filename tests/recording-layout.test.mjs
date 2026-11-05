@@ -75,7 +75,10 @@ test('the shared vertical scroller reaches the last step row at every height', (
   // Rows must never be clipped by the horizontal step scroller: at any
   // viewport height both columns grow with their rows (not only in the
   // short-viewport query, where fixed 32px rows made it visible first).
-  assert.match(styles, /\.bm-root \.bm-seq-labels,\s*\.bm-root \.bm-seq-grid\s*\{\s*height:\s*auto;\s*min-height:\s*100%/)
+  assert.match(styles, /\.bm-root \.bm-seq-grid\s*\{\s*min-height:\s*100%/)
+  // An inline height on the grid would override the stylesheet and clip rows.
+  const gridInner = styles.match(/seqGridInner:\s*\{([^}]*)\}/)?.[1] || ''
+  assert.doesNotMatch(gridInner, /\b(height|minHeight)\s*:/)
   assert.match(styles, /\.bm-root \.bm-seq-viewport > \*\s*\{\s*min-height:\s*min-content/)
   // The labels and the horizontal step scroller share that one vertical viewport.
   const viewport = sequencer.indexOf('bm-seq-viewport')

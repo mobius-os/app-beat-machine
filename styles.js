@@ -35,9 +35,7 @@ export const CSS = `
 /* Both row columns fill the viewport when rows fit and grow with them when
    they don't, so the one vertical viewport scrolls every row; the step
    grid's own scroller only ever scrolls horizontally. */
-.bm-root .bm-seq-labels,
 .bm-root .bm-seq-grid {
-  height: auto;
   min-height: 100%;
 }
 .bm-root .bm-seq-viewport > * {
@@ -361,8 +359,6 @@ export const S = {
     flexDirection: 'column',
     gap: 2,
     minWidth: TOTAL_BEATS * 34,
-    height: '100%',
-    minHeight: 0,
   },
   beatNumbers: {
     display: 'grid',
