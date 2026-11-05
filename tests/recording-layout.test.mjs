@@ -71,12 +71,12 @@ test('short landscape viewports scroll instead of collapsing the sequencer', () 
   assert.match(short, /\.bm-root \.bm-seq-cells\s*\{\s*flex:\s*0 0 32px/)
 })
 
-test('short viewports let the shared vertical scroller reach the last step row', () => {
-  const short = styles.match(/@media \(max-height: 520px\) \{([\s\S]*?)\n\}/)?.[1] || ''
-  // Fixed-height rows must not be clipped by the horizontal step scroller:
-  // both columns grow with their rows instead of filling the viewport.
-  assert.match(short, /\.bm-root \.bm-seq-viewport\s*\{\s*align-items:\s*flex-start/)
-  assert.match(short, /\.bm-root \.bm-seq-labels,\s*\.bm-root \.bm-seq-grid\s*\{\s*height:\s*auto\s*!important/)
+test('the shared vertical scroller reaches the last step row at every height', () => {
+  // Rows must never be clipped by the horizontal step scroller: at any
+  // viewport height both columns grow with their rows (not only in the
+  // short-viewport query, where fixed 32px rows made it visible first).
+  assert.match(styles, /\.bm-root \.bm-seq-labels,\s*\.bm-root \.bm-seq-grid\s*\{\s*height:\s*auto;\s*min-height:\s*100%/)
+  assert.match(styles, /\.bm-root \.bm-seq-viewport > \*\s*\{\s*min-height:\s*min-content/)
   // The labels and the horizontal step scroller share that one vertical viewport.
   const viewport = sequencer.indexOf('bm-seq-viewport')
   const labels = sequencer.indexOf('bm-seq-labels')
